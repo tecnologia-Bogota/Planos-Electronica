@@ -1,0 +1,2015 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="EM Seguridad PRO"/>
+<meta name="theme-color" content="#0ea5e9"/>
+<title>EM Seguridad PRO</title>
+<link rel="manifest" href="manifest.json"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none;}
+:root{
+  --bg:#080d14;--bg2:#0d1520;--bg3:#121d2e;--bg4:#172236;
+  --bd:#1e2f45;--bd2:#263d5a;
+  --acc:#0ea5e9;--acc2:#0284c7;
+  --red:#ef4444;--grn:#22c55e;--yel:#f59e0b;--pur:#a855f7;--ora:#f97316;
+  --txt:#e0eaf5;--txt2:#7a9bb8;--txt3:#3d5a78;
+  --font:'IBM Plex Sans',sans-serif;--mono:'IBM Plex Mono',monospace;
+  --tb:48px; /* toolbar height - larger for tablet touch */
+  --sb:200px; /* sidebar width */
+  --pr:172px; /* props width */
+}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--txt);font-family:var(--font);}
+/* CRITICAL for tablet: allow touch events on canvas properly */
+body{touch-action:none;}
+#app{display:flex;flex-direction:column;height:100%;height:100dvh;}
+
+/* ── TOPBAR ── */
+#topbar{
+  display:flex;align-items:center;gap:2px;padding:0 6px;
+  background:var(--bg2);border-bottom:2px solid var(--bd);
+  height:var(--tb);z-index:50;overflow-x:auto;scrollbar-width:none;flex-shrink:0;
+}
+#topbar::-webkit-scrollbar{display:none;}
+.logo{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:12px;font-weight:600;
+  color:var(--acc);white-space:nowrap;flex-shrink:0;border-right:1px solid var(--bd);
+  padding-right:10px;margin-right:3px;}
+.logo-badge{background:var(--acc);color:#000;font-size:10px;font-weight:700;padding:2px 6px;border-radius:3px;}
+.tb-group{display:flex;align-items:center;gap:2px;flex-shrink:0;}
+.sep{width:1px;height:26px;background:var(--bd);margin:0 3px;flex-shrink:0;}
+.tb-btn{
+  display:flex;align-items:center;justify-content:center;gap:4px;
+  padding:6px 10px;font-size:12px;font-family:var(--font);font-weight:500;
+  border:1px solid var(--bd);border-radius:6px;cursor:pointer;background:var(--bg3);color:var(--txt2);
+  white-space:nowrap;touch-action:manipulation;user-select:none;transition:background .1s,color .1s,border-color .1s;
+  min-height:34px;/* bigger tap target for tablet */
+}
+.tb-btn:active{background:var(--bg4);}
+.tb-btn.on{background:rgba(14,165,233,.2);color:var(--acc);border-color:var(--acc);}
+.tb-btn.danger{color:var(--red);border-color:rgba(239,68,68,.3);}
+.tb-btn.danger:active{background:rgba(239,68,68,.15);}
+.tb-btn.arch{color:var(--ora);border-color:rgba(249,115,22,.3);}
+.tb-btn.arch.on{background:rgba(249,115,22,.2);border-color:var(--ora);}
+.tb-btn.grn{color:var(--grn);border-color:rgba(34,197,94,.3);}
+#zoom-lbl{font-size:12px;font-family:var(--mono);color:var(--txt2);min-width:44px;text-align:center;flex-shrink:0;}
+#paper-sel,#wire-type,#wall-thick-sel{
+  padding:5px 8px;background:var(--bg3);color:var(--txt2);
+  border:1px solid var(--bd);border-radius:6px;font-size:12px;font-family:var(--font);cursor:pointer;
+  min-height:34px;
+}
+.btn-pdf{background:linear-gradient(135deg,#0ea5e9,#0284c7)!important;border-color:#0369a1!important;color:#fff!important;font-weight:700!important;}
+.btn-save{background:linear-gradient(135deg,#059669,#047857)!important;border-color:#065f46!important;color:#fff!important;font-weight:700!important;}
+
+/* ── MAIN ── */
+#main{display:flex;flex:1;overflow:hidden;min-height:0;}
+
+/* ── SIDEBAR ── */
+#sidebar{
+  width:var(--sb);min-width:var(--sb);background:var(--bg2);
+  border-right:1px solid var(--bd);display:flex;flex-direction:column;overflow:hidden;
+}
+#srch-wrap{padding:6px;}
+#srch{
+  width:100%;padding:8px 10px;background:var(--bg);border:1px solid var(--bd);
+  border-radius:6px;color:var(--txt);font-size:13px;font-family:var(--font);outline:none;
+}
+#srch:focus{border-color:var(--acc);}
+#srch::placeholder{color:var(--txt3);}
+.sidebar-cnt{font-size:9px;font-family:var(--mono);color:var(--txt3);padding:2px 10px 3px;text-align:right;}
+.sb-tabs{display:flex;border-bottom:1px solid var(--bd);flex-shrink:0;}
+.sb-tab{
+  flex:1;padding:7px 4px;font-size:10px;font-family:var(--mono);font-weight:600;
+  text-transform:uppercase;letter-spacing:.5px;color:var(--txt3);cursor:pointer;
+  text-align:center;border:none;background:none;border-bottom:2px solid transparent;transition:.1s;
+}
+.sb-tab.on{color:var(--acc);border-bottom-color:var(--acc);}
+#eq-list{flex:1;overflow-y:auto;padding:3px;overscroll-behavior:contain;}
+#eq-list::-webkit-scrollbar{width:4px;}
+#eq-list::-webkit-scrollbar-thumb{background:var(--bd);border-radius:2px;}
+.cat-hdr{
+  font-size:9px;font-weight:700;color:var(--txt3);font-family:var(--mono);
+  text-transform:uppercase;letter-spacing:1px;padding:8px 5px 4px;
+  border-top:1px solid var(--bd);margin-top:3px;
+}
+.cat-hdr:first-child{border-top:none;margin-top:0;padding-top:4px;}
+.eq-card{
+  display:flex;align-items:center;gap:7px;padding:7px 6px;border-radius:6px;
+  cursor:pointer;border:1px solid transparent;margin-bottom:2px;transition:all .1s;
+  min-height:44px;/* good tap target */
+}
+.eq-card:hover,.eq-card:active{background:var(--bg3);border-color:var(--bd);}
+.eq-card.active{background:rgba(14,165,233,.12);border-color:var(--acc);}
+.eq-ico{width:32px;height:32px;border-radius:5px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.eq-name{font-size:11px;font-weight:500;color:var(--txt);line-height:1.25;}
+.eq-sub{font-size:9px;color:var(--txt3);line-height:1.2;margin-top:1px;}
+
+/* ── CANVAS ── */
+#ca{
+  flex:1;position:relative;overflow:hidden;background:var(--bg);min-width:0;
+  cursor:default;
+}
+/* Stylus/pencil cursor improvements */
+#ca.placing{cursor:crosshair;}
+#ca.zoning{cursor:cell;}
+#ca.wiring{cursor:cell;}
+#ca.arching{cursor:crosshair;}
+#ca.texting{cursor:text;}
+canvas{position:absolute;top:0;left:0;pointer-events:none;}
+#oc{pointer-events:all;touch-action:none;}
+
+/* Zone draw indicator banner */
+#zone-hint{
+  display:none;position:absolute;top:8px;left:50%;transform:translateX(-50%);
+  background:rgba(14,165,233,.9);color:#fff;border-radius:20px;
+  padding:8px 18px;font-size:13px;font-family:var(--font);font-weight:600;
+  pointer-events:none;z-index:30;white-space:nowrap;
+  box-shadow:0 4px 20px rgba(14,165,233,.4);
+}
+#zone-hint.show{display:block;}
+
+/* Wall mode floating bar */
+#wall-bar{
+  display:none;position:absolute;top:10px;left:50%;transform:translateX(-50%);
+  background:rgba(13,21,32,.97);border:1px solid var(--bd2);border-radius:10px;
+  padding:8px 12px;align-items:center;gap:8px;z-index:35;
+  box-shadow:0 4px 24px rgba(0,0,0,.7);
+}
+#wall-bar.show{display:flex;}
+.wb-label{font-size:10px;font-family:var(--mono);color:var(--txt3);text-transform:uppercase;letter-spacing:.5px;}
+.wb-btn{
+  padding:7px 12px;font-size:12px;font-family:var(--font);border:1px solid var(--bd);
+  border-radius:6px;cursor:pointer;background:var(--bg3);color:var(--txt2);
+  transition:.1s;white-space:nowrap;min-height:36px;
+}
+.wb-btn:active{background:var(--bg4);}
+.wb-btn.on{background:rgba(249,115,22,.2);color:var(--ora);border-color:var(--ora);}
+
+/* ── PROPS PANEL ── */
+#props{
+  width:var(--pr);min-width:var(--pr);background:var(--bg2);border-left:1px solid var(--bd);
+  padding:10px;overflow-y:auto;display:none;scrollbar-width:thin;
+}
+#props.show{display:block;}
+#props h4{font-size:9px;font-weight:700;font-family:var(--mono);color:var(--txt3);
+  text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;
+  border-bottom:1px solid var(--bd);padding-bottom:7px;}
+.pr{margin-bottom:10px;}
+.pr-lbl{font-size:9px;font-family:var(--mono);color:var(--txt3);margin-bottom:4px;
+  text-transform:uppercase;letter-spacing:.5px;}
+.pr-val{font-size:12px;color:var(--txt);font-weight:500;}
+.pr-inp{
+  width:100%;padding:7px 9px;background:var(--bg);border:1px solid var(--bd);
+  border-radius:5px;color:var(--txt);font-size:12px;font-family:var(--font);outline:none;
+  min-height:38px;/* tablet */
+}
+.pr-inp:focus{border-color:var(--acc);}
+.pr-sep{border:none;border-top:1px solid var(--bd);margin:10px 0;}
+.pr-rot-row{display:flex;gap:4px;}
+.pr-rot-btn{
+  flex:1;padding:7px 4px;background:var(--bg3);border:1px solid var(--bd);
+  border-radius:5px;color:var(--txt2);font-size:11px;cursor:pointer;text-align:center;
+  min-height:36px;
+}
+.pr-rot-btn:active{background:var(--bg4);color:var(--txt);}
+.btn-del-pr,.btn-dup-pr{
+  width:100%;padding:9px;margin-top:6px;border-radius:6px;font-size:12px;
+  font-family:var(--font);cursor:pointer;display:flex;align-items:center;
+  justify-content:center;gap:5px;transition:.1s;min-height:40px;
+}
+.btn-del-pr{background:rgba(239,68,68,.08);color:var(--red);border:1px solid rgba(239,68,68,.25);}
+.btn-del-pr:active{background:rgba(239,68,68,.2);}
+.btn-dup-pr{background:rgba(14,165,233,.08);color:var(--acc);border:1px solid rgba(14,165,233,.25);}
+.btn-dup-pr:active{background:rgba(14,165,233,.18);}
+
+/* ── STATUSBAR ── */
+#statusbar{
+  display:flex;align-items:center;padding:0 10px;background:var(--bg2);
+  border-top:1px solid var(--bd);font-size:11px;font-family:var(--mono);
+  color:var(--txt3);height:28px;flex-shrink:0;gap:0;overflow:hidden;
+}
+.st-item{padding:0 8px;border-right:1px solid var(--bd);height:100%;display:flex;align-items:center;gap:4px;white-space:nowrap;}
+.st-item:last-child{border-right:none;margin-left:auto;}
+.st-dot{width:6px;height:6px;border-radius:50%;background:var(--grn);flex-shrink:0;}
+.st-dot.warn{background:var(--yel);}
+.st-dot.active{background:var(--acc);}
+.st-accent{color:var(--acc);}
+
+/* ── MODALS ── */
+.modal-wrap{
+  display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);
+  z-index:900;align-items:center;justify-content:center;
+  /* FIX: use flex not none so show works */
+}
+.modal-wrap.show{display:flex;}
+.modal{
+  background:var(--bg2);border:1px solid var(--bd2);border-radius:14px;
+  padding:24px;width:min(340px, 90vw);
+  box-shadow:0 20px 60px rgba(0,0,0,.9);
+  max-height:90vh;overflow-y:auto;
+}
+.modal h4{font-size:14px;font-weight:600;margin-bottom:16px;color:var(--txt);}
+.ml{font-size:10px;font-family:var(--mono);color:var(--txt3);display:block;margin-bottom:4px;text-transform:uppercase;letter-spacing:.5px;}
+.mi{
+  width:100%;padding:10px 12px;background:var(--bg);border:1px solid var(--bd);
+  border-radius:6px;color:var(--txt);font-size:14px;font-family:var(--font);
+  margin-bottom:12px;outline:none;min-height:44px;
+}
+.mi:focus{border-color:var(--acc);}
+.mbtns{display:flex;gap:10px;margin-top:6px;}
+.mbp{flex:1;padding:12px;background:linear-gradient(135deg,var(--acc),var(--acc2));color:#fff;border:none;border-radius:7px;font-size:14px;font-family:var(--font);font-weight:600;cursor:pointer;min-height:48px;}
+.mbs{flex:1;padding:12px;background:var(--bg3);color:var(--txt2);border:1px solid var(--bd);border-radius:7px;font-size:14px;font-family:var(--font);cursor:pointer;min-height:48px;}
+.proj-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.proj-field-full{grid-column:1/-1;}
+
+/* ── CTX MENU ── */
+#ctx{
+  position:fixed;background:var(--bg2);border:1px solid var(--bd2);
+  border-radius:10px;padding:5px;z-index:800;display:none;min-width:170px;
+  box-shadow:0 10px 40px rgba(0,0,0,.8);
+}
+.ctx-sep{height:1px;background:var(--bd);margin:3px 0;}
+.ctx-i{
+  padding:10px 14px;font-size:13px;font-family:var(--font);color:var(--txt);
+  cursor:pointer;border-radius:6px;display:flex;align-items:center;gap:8px;
+}
+.ctx-i:active{background:var(--bg4);}
+.ctx-i.d{color:var(--red);}
+
+/* ── TOOLTIP ── */
+#tip{
+  position:fixed;background:var(--bg2);border:1px solid var(--bd2);border-radius:8px;
+  padding:8px 12px;font-size:11px;font-family:var(--mono);color:var(--txt);
+  pointer-events:none;z-index:500;display:none;max-width:180px;line-height:1.6;
+  box-shadow:0 4px 20px rgba(0,0,0,.6);
+}
+.tip-title{color:var(--acc);font-weight:600;font-size:12px;}
+.tip-note{color:var(--txt3);font-size:10px;margin-top:2px;}
+
+/* ── LEGEND ── */
+#legend{
+  position:absolute;bottom:38px;right:10px;background:rgba(13,21,32,.98);
+  border:1px solid var(--bd2);border-radius:12px;padding:14px;
+  display:none;max-height:340px;overflow-y:auto;min-width:190px;
+  box-shadow:0 8px 32px rgba(0,0,0,.6);
+}
+#legend.show{display:block;}
+#legend h5{color:var(--txt3);font-size:9px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px;}
+.lg-r{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;color:var(--txt);}
+.lg-l{display:flex;align-items:center;gap:6px;}
+.lg-d{width:10px;height:10px;border-radius:3px;flex-shrink:0;}
+.lg-cnt{font-family:var(--mono);font-size:9px;color:var(--txt3);}
+.lg-sep{border:none;border-top:1px solid var(--bd);margin:8px 0;}
+
+/* ── MINIMAP ── */
+#minimap{
+  position:absolute;bottom:38px;left:10px;background:rgba(13,21,32,.97);
+  border:1px solid var(--bd);border-radius:10px;overflow:hidden;display:none;
+  box-shadow:0 4px 20px rgba(0,0,0,.6);
+}
+#minimap.show{display:block;}
+
+/* ── TOAST ── */
+#toast{
+  position:fixed;bottom:42px;left:50%;transform:translateX(-50%) translateY(10px);
+  background:var(--bg2);border:1px solid var(--bd2);border-radius:10px;
+  padding:10px 20px;font-size:13px;font-family:var(--font);color:var(--txt);
+  z-index:1000;opacity:0;pointer-events:none;transition:all .22s;
+  box-shadow:0 4px 24px rgba(0,0,0,.6);white-space:nowrap;
+}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+#toast.ok{border-color:rgba(34,197,94,.4);color:var(--grn);}
+#toast.err{border-color:rgba(239,68,68,.4);color:var(--red);}
+#toast.info{border-color:rgba(14,165,233,.4);color:var(--acc);}
+
+/* ── INSTALL BANNER ── */
+#install-banner{
+  display:none;position:fixed;bottom:50px;right:16px;z-index:1000;
+  background:var(--bg2);border:1px solid var(--acc);border-radius:12px;
+  padding:14px 18px;box-shadow:0 8px 32px rgba(14,165,233,.3);
+  max-width:260px;
+}
+#install-banner.show{display:block;}
+#install-banner p{font-size:12px;color:var(--txt2);margin-bottom:10px;line-height:1.5;}
+#install-banner strong{color:var(--acc);}
+.install-btn{
+  width:100%;padding:10px;background:var(--acc);color:#000;border:none;
+  border-radius:7px;font-size:13px;font-weight:700;cursor:pointer;
+}
+.install-close{
+  position:absolute;top:8px;right:8px;background:none;border:none;
+  color:var(--txt3);cursor:pointer;font-size:16px;padding:4px;
+}
+
+/* ── HELP ── */
+#help-ov{
+  position:absolute;bottom:38px;right:210px;background:rgba(13,21,32,.97);
+  border:1px solid var(--bd2);border-radius:12px;padding:14px;
+  display:none;min-width:210px;font-size:11px;font-family:var(--mono);color:var(--txt3);
+  box-shadow:0 8px 32px rgba(0,0,0,.6);
+}
+#help-ov.show{display:block;}
+#help-ov h5{color:var(--acc);margin-bottom:10px;font-size:11px;}
+.hk{display:flex;justify-content:space-between;margin-bottom:4px;align-items:center;}
+.hk-key{background:var(--bg4);border:1px solid var(--bd);border-radius:4px;padding:2px 7px;color:var(--txt);font-size:10px;}
+</style>
+</head>
+<body>
+<div id="app">
+
+<!-- TOPBAR -->
+<div id="topbar">
+  <div class="logo">
+    <span class="logo-badge">EM</span>
+    <span>Seguridad PRO</span>
+  </div>
+
+  <!-- Tool group -->
+  <div class="tb-group">
+    <button class="tb-btn on" id="btn-select" onclick="setTool('select')" title="Seleccionar (S)">↖ Selec.</button>
+    <button class="tb-btn" id="btn-zone" onclick="setTool('zone')" title="Zona (Z)">⬜ Zona</button>
+    <button class="tb-btn" id="btn-wire" onclick="setTool('wire')" title="Cable (W)">⌇ Cable</button>
+    <select id="wire-type">
+      <option value="utp">UTP Cat6</option>
+      <option value="coaxial">Coaxial RG59</option>
+      <option value="fibra">Fibra óptica</option>
+      <option value="rs485">RS-485</option>
+      <option value="v220">Línea 220V</option>
+      <option value="poe">PoE</option>
+      <option value="hdmi">HDMI/Video</option>
+    </select>
+  </div>
+
+  <div class="sep"></div>
+
+  <!-- Architecture group -->
+  <div class="tb-group">
+    <button class="tb-btn arch" id="btn-wall" onclick="setWallSub('wall')" title="Pared (P)">▬ Pared</button>
+    <button class="tb-btn arch" id="btn-door" onclick="setWallSub('door')" title="Puerta (D)">⌐ Puerta</button>
+    <button class="tb-btn arch" id="btn-window" onclick="setWallSub('win')" title="Ventana (V)">⊟ Ventana</button>
+    <button class="tb-btn arch" id="btn-conduit" onclick="setWallSub('conduit')" title="Tubería (C)">⋯ Tubería</button>
+    <button class="tb-btn" id="btn-text" onclick="setTool('text')" title="Texto (T)">T Texto</button>
+    <select id="wall-thick-sel">
+      <option value="8">Muro delgado</option>
+      <option value="14" selected>Muro estándar</option>
+      <option value="22">Muro estructural</option>
+      <option value="30">Muro grueso</option>
+    </select>
+  </div>
+
+  <div class="sep"></div>
+
+  <!-- Edit group -->
+  <div class="tb-group">
+    <button class="tb-btn" onclick="undoAct()" title="Deshacer Ctrl+Z">↩ Des.</button>
+    <button class="tb-btn" onclick="redoAct()" title="Rehacer Ctrl+Y">↪ Re.</button>
+    <button class="tb-btn danger" onclick="delSel()" title="Eliminar Del">✕ Del</button>
+    <button class="tb-btn" onclick="dupSel()" title="Duplicar Ctrl+D">⧉ Dup.</button>
+  </div>
+
+  <div class="sep"></div>
+
+  <!-- View group -->
+  <div class="tb-group">
+    <button class="tb-btn" id="btn3d" onclick="toggle3D()">⧫ 3D</button>
+    <button class="tb-btn on" id="btngrid" onclick="toggleGrid()">⊞ Grid</button>
+    <button class="tb-btn on" id="btnsnap" onclick="toggleSnap()">⊡ Snap</button>
+    <button class="tb-btn" id="btnleg" onclick="toggleLeg()">≡ Leyenda</button>
+    <button class="tb-btn" id="btnmm" onclick="toggleMinimap()">⊙ Mini</button>
+    <button class="tb-btn" onclick="toggleHelp()">? Ayuda</button>
+  </div>
+
+  <div class="sep"></div>
+
+  <!-- Zoom group -->
+  <div class="tb-group">
+    <button class="tb-btn" onclick="zoomFit()">⊡ Fit</button>
+    <button class="tb-btn" onclick="chScale(-0.15)">−</button>
+    <span id="zoom-lbl">100%</span>
+    <button class="tb-btn" onclick="chScale(0.15)">+</button>
+    <select id="paper-sel" onchange="render()">
+      <option value="1200,849">A4 Paisaje</option>
+      <option value="849,1200">A4 Retrato</option>
+      <option value="1697,1200">A3 Paisaje</option>
+      <option value="2400,1700">A2 Paisaje</option>
+    </select>
+  </div>
+
+  <div class="sep"></div>
+
+  <!-- File group -->
+  <div class="tb-group">
+    <button class="tb-btn" onclick="openProjModal()">⚙ Proyecto</button>
+    <button class="tb-btn" onclick="loadPlan()">📂 Abrir</button>
+    <button class="tb-btn btn-save" onclick="savePlan()">💾 Guardar</button>
+    <button class="tb-btn btn-pdf" onclick="exportPDF()">📄 PDF</button>
+    <button class="tb-btn danger" onclick="clearAll()">🗑 Limpiar</button>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div id="main">
+
+  <!-- SIDEBAR -->
+  <div id="sidebar">
+    <div id="srch-wrap">
+      <input id="srch" type="text" placeholder="🔍 Buscar equipo..." oninput="buildSidebar(this.value)" autocomplete="off" autocorrect="off" spellcheck="false"/>
+    </div>
+    <div class="sb-tabs">
+      <button class="sb-tab on" id="tab-equip" onclick="switchTab('equip')">Equipos</button>
+      <button class="sb-tab" id="tab-arch" onclick="switchTab('arch')">Arquitectura</button>
+    </div>
+    <div class="sidebar-cnt" id="sb-cnt"></div>
+    <div id="eq-list"></div>
+  </div>
+
+  <!-- CANVAS AREA -->
+  <div id="ca">
+    <!-- Zone drawing hint -->
+    <div id="zone-hint">🖊 Arrastra para crear la zona</div>
+    <!-- Wall mode bar -->
+    <div id="wall-bar">
+      <span class="wb-label">Tipo:</span>
+      <button class="wb-btn on" id="wb-wall" onclick="setWallSub('wall')">Pared</button>
+      <button class="wb-btn" id="wb-door" onclick="setWallSub('door')">Puerta</button>
+      <button class="wb-btn" id="wb-win" onclick="setWallSub('win')">Ventana</button>
+      <button class="wb-btn" id="wb-conduit" onclick="setWallSub('conduit')">Tubería</button>
+      <span class="wb-label" style="margin-left:6px;color:var(--txt3)">ESC = salir</span>
+    </div>
+    <canvas id="gc"></canvas>
+    <canvas id="mc"></canvas>
+    <canvas id="oc"></canvas>
+  </div>
+
+  <!-- PROPS PANEL -->
+  <div id="props">
+    <h4>⚙ Propiedades</h4>
+    <div id="pr-body"></div>
+    <hr class="pr-sep"/>
+    <button class="btn-dup-pr" onclick="dupSel()">⧉ Duplicar</button>
+    <button class="btn-del-pr" onclick="delSel()">✕ Eliminar</button>
+  </div>
+</div>
+
+<!-- STATUSBAR -->
+<div id="statusbar">
+  <div class="st-item"><span class="st-dot" id="st-dot"></span><span id="st-tool">Listo</span></div>
+  <div class="st-item">X:<span id="st-x" class="st-accent">0</span> Y:<span id="st-y" class="st-accent">0</span></div>
+  <div class="st-item">▪ <span id="st-cnt">0 equipos</span></div>
+  <div class="st-item">⌇ <span id="st-wcnt">0 cables</span></div>
+  <div class="st-item">⬜ <span id="st-zcnt">0 zonas</span></div>
+  <div class="st-item">▬ <span id="st-walls">0 paredes</span></div>
+  <div class="st-item" style="margin-left:auto;border-right:none;border-left:1px solid var(--bd);">
+    <span id="st-sel" style="color:var(--acc);font-weight:600;"></span>
+    · <span id="st-proj" style="color:var(--txt3)">Sin proyecto</span>
+    · <span style="color:var(--txt3)">Ing. Edisson Macias</span>
+  </div>
+</div>
+</div>
+
+<!-- ═══ MODALS ═══ -->
+
+<!-- Zone modal -->
+<div class="modal-wrap" id="zm-wrap">
+  <div class="modal">
+    <h4>📐 Nueva zona / ambiente</h4>
+    <label class="ml">Nombre del área</label>
+    <input class="mi" type="text" id="zm-name" placeholder="Lobby, Cuarto técnico…"/>
+    <label class="ml">Tipo de zona</label>
+    <select class="mi" id="zm-type">
+      <option value="comun">Área común</option>
+      <option value="restringida">Área restringida</option>
+      <option value="tecnica">Cuarto técnico / rack</option>
+      <option value="exterior">Exterior / perimetral</option>
+      <option value="parqueadero">Parqueadero / sótano</option>
+      <option value="escaleras">Escaleras / circulación</option>
+      <option value="vip">Área VIP / gerencial</option>
+      <option value="lobby">Lobby / recepción</option>
+      <option value="servidores">Sala de servidores</option>
+    </select>
+    <label class="ml">Piso / nivel</label>
+    <input class="mi" type="text" id="zm-piso" placeholder="Piso 1, Sótano 2…"/>
+    <div class="mbtns">
+      <button class="mbs" onclick="cancelZone()">Cancelar</button>
+      <button class="mbp" onclick="confirmZone()">✓ Crear zona</button>
+    </div>
+  </div>
+</div>
+
+<!-- Text modal -->
+<div class="modal-wrap" id="txt-wrap">
+  <div class="modal" style="width:min(300px,90vw)">
+    <h4>T Insertar texto</h4>
+    <label class="ml">Texto</label>
+    <input class="mi" type="text" id="txt-val" placeholder="Nota, etiqueta, acotación…"/>
+    <label class="ml">Tamaño</label>
+    <select class="mi" id="txt-size">
+      <option value="10">Pequeño</option>
+      <option value="13" selected>Normal</option>
+      <option value="18">Grande</option>
+      <option value="24">Título</option>
+    </select>
+    <label class="ml">Color</label>
+    <select class="mi" id="txt-color">
+      <option value="#7a9bb8">Gris</option>
+      <option value="#0ea5e9">Azul</option>
+      <option value="#22c55e">Verde</option>
+      <option value="#f59e0b">Amarillo</option>
+      <option value="#ef4444">Rojo</option>
+      <option value="#e0eaf5">Blanco</option>
+    </select>
+    <div class="mbtns">
+      <button class="mbs" onclick="cancelText()">Cancelar</button>
+      <button class="mbp" onclick="confirmText()">✓ Insertar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Project modal -->
+<div class="modal-wrap" id="proj-modal">
+  <div class="modal" style="width:min(380px,95vw)">
+    <h4>🏢 Datos del proyecto</h4>
+    <div class="proj-grid">
+      <div class="proj-field-full">
+        <label class="ml">Nombre del proyecto</label>
+        <input class="mi" id="pj-name" placeholder="Edificio Centro Empresarial…"/>
+      </div>
+      <div>
+        <label class="ml">Cliente</label>
+        <input class="mi" id="pj-client" placeholder="Empresa S.A.S."/>
+      </div>
+      <div>
+        <label class="ml">NIT / ID</label>
+        <input class="mi" id="pj-nit" placeholder="900.123.456-7"/>
+      </div>
+      <div class="proj-field-full">
+        <label class="ml">Dirección</label>
+        <input class="mi" id="pj-addr" placeholder="Calle 100 # 7-55, Bogotá"/>
+      </div>
+      <div>
+        <label class="ml">Revisión</label>
+        <input class="mi" id="pj-rev" value="Rev. A"/>
+      </div>
+      <div>
+        <label class="ml">Fecha</label>
+        <input class="mi" type="date" id="pj-date"/>
+      </div>
+      <div class="proj-field-full">
+        <label class="ml">Notas</label>
+        <textarea class="mi" id="pj-notes" rows="2" placeholder="Alcance del proyecto…" style="resize:vertical;height:auto;min-height:64px;"></textarea>
+      </div>
+    </div>
+    <div class="mbtns">
+      <button class="mbs" onclick="closeProjModal()">Cancelar</button>
+      <button class="mbp" onclick="saveProjData()">✓ Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- CTX menu -->
+<div id="ctx">
+  <div class="ctx-i" onclick="ctxDup()">⧉ Duplicar</div>
+  <div class="ctx-i" onclick="ctxProps()">⚙ Propiedades</div>
+  <div class="ctx-i" onclick="ctxWire()">⌇ Conectar cable</div>
+  <div class="ctx-i" onclick="ctxRotate()">↻ Rotar 90°</div>
+  <div class="ctx-sep"></div>
+  <div class="ctx-i d" onclick="ctxDel()">✕ Eliminar</div>
+</div>
+
+<!-- Tooltip -->
+<div id="tip"></div>
+
+<!-- Legend -->
+<div id="legend">
+  <h5>Equipos</h5><div id="leg-body"></div>
+  <hr class="lg-sep"/>
+  <h5>Cables</h5><div id="leg-wires"></div>
+  <hr class="lg-sep"/>
+  <h5>Arquitectura</h5><div id="leg-arch"></div>
+</div>
+
+<!-- Minimap -->
+<div id="minimap"><canvas id="mm-canvas" width="190" height="130"></canvas></div>
+
+<!-- Help -->
+<div id="help-ov">
+  <h5>Atajos de teclado</h5>
+  <div class="hk"><span>Seleccionar</span><span class="hk-key">S</span></div>
+  <div class="hk"><span>Zona</span><span class="hk-key">Z</span></div>
+  <div class="hk"><span>Cable</span><span class="hk-key">W</span></div>
+  <div class="hk"><span>Pared</span><span class="hk-key">P</span></div>
+  <div class="hk"><span>Puerta</span><span class="hk-key">D</span></div>
+  <div class="hk"><span>Ventana</span><span class="hk-key">V</span></div>
+  <div class="hk"><span>Tubería</span><span class="hk-key">C</span></div>
+  <div class="hk"><span>Texto</span><span class="hk-key">T</span></div>
+  <div class="hk"><span>Ajustar vista</span><span class="hk-key">F</span></div>
+  <div class="hk"><span>Grid</span><span class="hk-key">G</span></div>
+  <div class="hk"><span>Rotar</span><span class="hk-key">R</span></div>
+  <div class="hk"><span>Duplicar</span><span class="hk-key">Ctrl+D</span></div>
+  <div class="hk"><span>Deshacer</span><span class="hk-key">Ctrl+Z</span></div>
+  <div class="hk"><span>Guardar</span><span class="hk-key">Ctrl+S</span></div>
+  <div class="hk"><span>Escape</span><span class="hk-key">Esc</span></div>
+  <div style="margin-top:10px;font-size:9px;color:var(--txt3);line-height:1.6">
+    Tablet: arrastra con el dedo o lápiz<br>
+    Zona: toca y arrastra para crear área<br>
+    Pared: toca 2 puntos (inicio → fin)<br>
+    Zoom: pellizca con 2 dedos
+  </div>
+</div>
+
+<!-- Install PWA banner -->
+<div id="install-banner">
+  <button class="install-close" onclick="document.getElementById('install-banner').classList.remove('show')">✕</button>
+  <p><strong>EM Seguridad PRO</strong><br>Instalar como app en tu tablet Lenovo M10 para acceso offline.</p>
+  <button class="install-btn" id="install-btn">📲 Instalar App</button>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<!-- ═══════════════════════════════════════════════
+     JAVASCRIPT
+═══════════════════════════════════════════════ -->
+<script>
+'use strict';
+
+// ═══ SVG ICON RENDERER ═══
+function drawIcon(ctx, type, cx, cy, sz, col) {
+  const s = sz * 0.42;
+  ctx.save();
+  ctx.strokeStyle = col;
+  ctx.fillStyle = col;
+  ctx.lineWidth = Math.max(1.2, sz * 0.065);
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  const L=(x1,y1,x2,y2)=>{ctx.beginPath();ctx.moveTo(cx+x1*s,cy+y1*s);ctx.lineTo(cx+x2*s,cy+y2*s);ctx.stroke();};
+  const C=(x,y,r,fill)=>{ctx.beginPath();ctx.arc(cx+x*s,cy+y*s,r*s,0,Math.PI*2);fill?ctx.fill():ctx.stroke();};
+  const R=(x,y,w,h,fill)=>{fill?ctx.fillRect(cx+x*s,cy+y*s,w*s,h*s):ctx.strokeRect(cx+x*s,cy+y*s,w*s,h*s);};
+
+  switch(type) {
+    // Cameras
+    case 'cam_domo_ip': case 'cam_domo_ana': case 'cam_domo_ahd': case 'cam_domo_4k':
+      ctx.beginPath();ctx.arc(cx,cy-.1*s,.72*s,Math.PI,0);ctx.stroke();
+      L(-.72,-.1,.72,-.1);C(0,.38,.22,true);break;
+    case 'cam_bala_ip': case 'cam_bala_ana':
+      ctx.beginPath();ctx.roundRect?ctx.roundRect(cx-.72*s,cy-.28*s,1.35*s,.56*s,.1*s):ctx.rect(cx-.72*s,cy-.28*s,1.35*s,.56*s);
+      ctx.stroke();C(.55,0,.25,false);C(.55,0,.1,true);L(-.72,0,-.3,0);break;
+    case 'cam_ptz_ip': case 'cam_ptz_ana':
+      C(0,-.1,.58,false);C(0,-.1,.22,true);L(0,.48,0,.72);L(-.18,.72,.18,.72);
+      ctx.beginPath();ctx.arc(cx,cy-.1*s,.8*s,-2,-.3);ctx.stroke();break;
+    case 'cam_fisheye': case 'cam_360':
+      C(0,0,.72,false);C(0,0,.46,false);C(0,0,.16,true);break;
+    case 'cam_lpr':
+      R(-.72,-.42,1.44,.84,false);R(-.42,-.22,.84,.44,true);break;
+    case 'cam_termica':
+      R(-.66,-.36,1.32,.72,false);C(.56,0,.22,false);
+      for(let i=-1;i<=1;i++){ctx.beginPath();ctx.moveTo(cx-.3*s,cy+i*.2*s+.6*s);ctx.bezierCurveTo(cx-.1*s,cy+i*.2*s+.46*s,cx+.1*s,cy+i*.2*s+.74*s,cx+.3*s,cy+i*.2*s+.6*s);ctx.stroke();}
+      break;
+    case 'cam_box':
+      R(-.72,-.46,1.44,.92,false);C(.32,0,.36,false);C(.32,0,.14,true);L(-.72,0,-.3,0);break;
+    // DVR/NVR
+    case 'nvr': case 'dvr':
+      R(-.8,-.56,1.6,1.12,false);
+      for(let i=0;i<3;i++) R(-.6+i*.42,-.36,.34,.72,false);
+      ctx.fillStyle='#22c55e';C(.66,-.38,.1,true);ctx.fillStyle=col;break;
+    // Network
+    case 'switch_poe': case 'router':
+      R(-.8,-.4,1.6,.8,false);
+      for(let i=0;i<5;i++) R(-.66+i*.28,-.2,.2,.4,false);
+      ctx.fillStyle='#22c55e';
+      for(let i=0;i<4;i++){ctx.beginPath();ctx.arc(cx+(-.5+i*.28)*s,cy-.32*s,.08*s,0,Math.PI*2);ctx.fill();}
+      ctx.fillStyle=col;break;
+    // Rack
+    case 'rack_6u': case 'rack_12u': case 'rack_22u':
+      R(-.5,-.78,1,.28*5,false);
+      for(let i=0;i<5;i++) R(-.4,-.68+i*.28,.8,.2,false);break;
+    // UPS
+    case 'ups_1kva': case 'ups_2kva': case 'ups_6kva':
+      R(-.62,-.62,1.24,1.24,false);L(-.3,-.32,.3,-.32);L(-.3,.1,.3,.1);L(0,-.58,0,-.32);L(0,.1,0,.36);
+      ctx.fillStyle='#22c55e';R(-.26,.22,.52,.26,true);ctx.fillStyle=col;break;
+    // Monitor
+    case 'monitor_22': case 'monitor_32':
+      R(-.76,-.56,1.52,1.02,false);L(0,.46,0,.72);L(-.3,.72,.3,.72);break;
+    // Access control
+    case 'controladora': case 'videoportero':
+      R(-.5,-.72,1.0,1.44,false);C(0,-.28,.3,false);
+      for(let r=0;r<3;r++) for(let c=0;c<3;c++) C((-.2+c*.2),(0.05+r*.24),.08,true);break;
+    case 'lector_rfid': case 'lector_huella':
+      R(-.46,-.72,.92,1.44,false);
+      for(let i=1;i<=3;i++){ctx.beginPath();ctx.arc(cx,cy-.1*s,i*.18*s,Math.PI*.2,Math.PI*.8);ctx.stroke();}
+      break;
+    case 'lector_facial': case 'lector_qr':
+      R(-.56,-.66,1.12,1.32,false);C(0,-.18,.34,false);
+      L(-.2,.24,.2,.24);C(-.14,-.22,.09,true);C(.14,-.22,.09,true);break;
+    case 'electroiman': case 'cerradura_elec':
+      ctx.beginPath();ctx.arc(cx,cy+.2*s,.52*s,Math.PI,0);ctx.stroke();
+      L(-.52,.2,-.52,.72);L(.52,.2,.52,.72);
+      ctx.fillStyle='#ef4444';R(-.56,.67,.26,.16,true);
+      ctx.fillStyle='#3b82f6';R(.3,.67,.26,.16,true);ctx.fillStyle=col;break;
+    case 'torniquete':
+      C(0,0,.52,false);L(0,-.52,0,.52);L(-.52,0,.52,0);L(-.36,-.36,.36,.36);L(.36,-.36,-.36,.36);break;
+    case 'barrera_veh':
+      R(-.82,.28,.26,.52,false);L(-.7,-.32,.82,-.32);break;
+    case 'sensor_mag':
+      R(-.62,-.26,.46,.52,false);R(.16,-.26,.46,.52,false);ctx.setLineDash([3,2]);L(-.16,0,.16,0);ctx.setLineDash([]);break;
+    case 'boton_panico': case 'boton_salida':
+      C(0,0,.66,false);ctx.fillStyle=type==='boton_panico'?'#ef4444':'#22c55e';C(0,0,.44,true);ctx.fillStyle=col;break;
+    // Alarm
+    case 'pir_simple': case 'pir_doble': case 'pir_exterior': case 'pir_cortina':
+      ctx.beginPath();ctx.moveTo(cx-.72*s,cy);ctx.quadraticCurveTo(cx,cy-.62*s,cx+.72*s,cy);ctx.quadraticCurveTo(cx,cy+.62*s,cx-.72*s,cy);ctx.stroke();
+      C(0,0,.2,true);for(let i=1;i<=3;i++){ctx.beginPath();ctx.arc(cx,cy,(.42+i*.2)*s,-.42,.42);ctx.stroke();}
+      break;
+    case 'detector_humo':
+      C(0,-.15,.62,false);C(0,-.15,.3,false);
+      for(let i=-1;i<=1;i++){ctx.beginPath();ctx.moveTo(cx+i*.15*s,cy+.46*s);ctx.bezierCurveTo(cx+(i-.15)*.2*s,cy+.72*s,cx+(i+.15)*.2*s,cy+.92*s,cx+i*.15*s,cy+1.12*s);ctx.stroke();}
+      break;
+    case 'detector_gas':
+      R(-.56,-.56,1.12,.88,false);
+      ctx.font=`bold ${.38*s}px 'IBM Plex Mono',monospace`;
+      ctx.fillStyle=col;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('GAS',cx,cy-.12*s);
+      ctx.textAlign='left';ctx.textBaseline='alphabetic';
+      ctx.beginPath();ctx.moveTo(cx,cy+.4*s);ctx.lineTo(cx-.36*s,cy+.86*s);ctx.lineTo(cx+.36*s,cy+.86*s);ctx.closePath();ctx.stroke();break;
+    case 'detector_inund':
+      for(let i=0;i<3;i++){ctx.beginPath();ctx.moveTo(cx-.72*s,cy+(-.32+i*.34)*s);ctx.bezierCurveTo(cx-.36*s,cy+(-.52+i*.34)*s,cx+.36*s,cy+(-.12+i*.34)*s,cx+.72*s,cy+(-.32+i*.34)*s);ctx.stroke();}
+      C(0,-.52,.16,true);break;
+    case 'sirena_int': case 'sirena_ext':
+      ctx.beginPath();ctx.moveTo(cx-.16*s,cy-.32*s);ctx.lineTo(cx-.58*s,cy-.66*s);ctx.lineTo(cx-.58*s,cy+.66*s);ctx.lineTo(cx-.16*s,cy+.32*s);ctx.closePath();ctx.stroke();
+      R(-.16,-.32,.32,.64,false);for(let i=1;i<=3;i++){ctx.beginPath();ctx.arc(cx+.2*s,cy,i*.26*s,-.62,.62);ctx.stroke();}
+      break;
+    case 'panel_alarma': case 'teclado_alarma':
+      R(-.62,-.76,1.24,1.52,false);R(-.46,-.62,.92,.52,false);
+      for(let r=0;r<3;r++) for(let c=0;c<3;c++) C((-.2+c*.2),(0.05+r*.26),.1,true);break;
+    case 'barrera_infr':
+      R(-.82,-.52,.22,1.04,false);R(.6,-.52,.22,1.04,false);ctx.setLineDash([4,3]);
+      for(let i=-1;i<=1;i++) L(-.6,i*.2,.6,i*.2);ctx.setLineDash([]);break;
+    case 'sirena_ext':
+      C(0,0,.66,false);break;
+    // Intercom
+    case 'central_intercom': case 'telefono_ip': case 'intercom_video':
+      R(-.52,-.66,1.04,1.32,false);
+      ctx.beginPath();ctx.arc(cx-.1*s,cy-.3*s,.26*s,Math.PI*1.1,Math.PI*.1);ctx.arc(cx+.1*s,cy+.3*s,.26*s,Math.PI*0.1,Math.PI*1.1,true);ctx.stroke();break;
+    case 'altavoz_pa':
+      C(0,0,.66,false);ctx.beginPath();ctx.moveTo(cx-.16*s,cy-.26*s);ctx.lineTo(cx-.58*s,cy-.56*s);ctx.lineTo(cx-.58*s,cy+.56*s);ctx.lineTo(cx-.16*s,cy+.26*s);ctx.closePath();ctx.stroke();
+      R(-.16,-.26,.32,.52,false);break;
+    // Infra
+    case 'patch_panel':
+      R(-.82,-.36,1.64,.72,false);for(let i=0;i<8;i++) R(-.72+i*.18,-.26,.14,.52,false);break;
+    case 'fuente_12v': case 'fuente_24v':
+      R(-.62,-.52,1.24,1.04,false);C(-.2,-.1,.22,false);L(.1,-.28,.52,-.28);L(.1,.28,.52,.28);break;
+    case 'servidor_vms':
+      R(-.72,-.82,1.44,1.64,false);for(let i=0;i<4;i++) R(-.56,-.72+i*.4,1.12,.3,false);
+      ctx.fillStyle='#22c55e';for(let i=0;i<4;i++){ctx.beginPath();ctx.arc(cx+.42*s,cy+(-.56+i*.4)*s,.09*s,0,Math.PI*2);ctx.fill();}
+      ctx.fillStyle=col;break;
+    case 'poste_3m': case 'poste_4m':
+      L(0,-.92,0,.92);L(-.32,-.66,.32,-.66);R(-.12,.7,.24,.26,false);break;
+    case 'soporte_pared':
+      L(-.82,0,0,0);L(0,-.72,0,.52);L(-.82,0,-.82,-.52);C(0,-.72,.16,false);break;
+    case 'toma_220v':
+      C(0,0,.62,false);R(-.12,-.36,.1,.46,false);R(.02,-.36,.1,.46,false);R(-.08,.14,.16,.22,false);break;
+    case 'breaker':
+      R(-.42,-.72,.84,1.44,false);L(0,-.46,0,.46);C(0,.46,.14,true);break;
+    case 'tierra_fisica':
+      L(0,-.52,0,.3);L(-.56,.3,.56,.3);L(-.4,.52,.4,.52);L(-.22,.72,.22,.72);break;
+    case 'transformador':
+      C(-.32,0,.42,false);C(.32,0,.42,false);L(0,-.72,0,.72);break;
+    default:
+      C(0,0,.66,false);C(0,0,.2,true);break;
+  }
+  ctx.restore();
+}
+
+// ═══ EQUIPMENT CATALOG ═══
+const EQUIPS=[
+  {cat:"Control de acceso",items:[
+    {id:"videoportero",n:"Videoportero IP",s:"Hikvision DS-KV",c:"#3b82f6",bg:"#1e3a5f"},
+    {id:"controladora",n:"Controladora acceso",s:"ZKTeco / HID",c:"#10b981",bg:"#064e3b"},
+    {id:"lector_rfid",n:"Lector RFID",s:"125kHz / 13.56MHz",c:"#10b981",bg:"#064e3b"},
+    {id:"lector_huella",n:"Lector biométrico",s:"Huella / Facial",c:"#10b981",bg:"#064e3b"},
+    {id:"lector_facial",n:"Cámara facial",s:"ZKTeco SpeedFace",c:"#10b981",bg:"#064e3b"},
+    {id:"teclado_pin",n:"Teclado PIN",s:"Con backlight",c:"#10b981",bg:"#064e3b"},
+    {id:"electroiman",n:"Electroimán",s:"280kg / 600lb",c:"#8b5cf6",bg:"#2e1065"},
+    {id:"cerradura_elec",n:"Cerradura eléctrica",s:"Fail safe/secure",c:"#8b5cf6",bg:"#2e1065"},
+    {id:"torniquete",n:"Torniquete",s:"Bidireccional",c:"#8b5cf6",bg:"#2e1065"},
+    {id:"barrera_veh",n:"Barrera vehicular",s:"3m / 6m brazo",c:"#8b5cf6",bg:"#2e1065"},
+    {id:"boton_salida",n:"Botón salida",s:"Verde / sin clavija",c:"#f59e0b",bg:"#451a03"},
+    {id:"boton_panico",n:"Botón de pánico",s:"Fijo / inalámbrico",c:"#ef4444",bg:"#450a0a"},
+    {id:"sensor_mag",n:"Sensor magnético",s:"NC/NO puertas",c:"#f59e0b",bg:"#451a03"},
+    {id:"lector_qr",n:"Lector QR / Barras",s:"Código QR / barras",c:"#10b981",bg:"#064e3b"},
+    {id:"palanca_emerg",n:"Palanca emergencia",s:"Rompecristal",c:"#ef4444",bg:"#450a0a"},
+  ]},
+  {cat:"Cámaras IP",items:[
+    {id:"cam_domo_ip",n:"Cámara IP Domo",s:"2/4/8MP",c:"#a855f7",bg:"#3b0764"},
+    {id:"cam_bala_ip",n:"Cámara IP Bala",s:"Exterior IR 30m",c:"#a855f7",bg:"#3b0764"},
+    {id:"cam_ptz_ip",n:"Cámara PTZ IP",s:"Auto-seguimiento",c:"#a855f7",bg:"#3b0764"},
+    {id:"cam_fisheye",n:"Cámara Ojo de pez",s:"360° panorámica",c:"#a855f7",bg:"#3b0764"},
+    {id:"cam_360",n:"Cámara 360° mini",s:"Interior techo",c:"#a855f7",bg:"#3b0764"},
+    {id:"cam_box",n:"Cámara Box IP",s:"Con lente varifocal",c:"#a855f7",bg:"#3b0764"},
+    {id:"cam_lpr",n:"Cámara LPR",s:"Lectura de placas",c:"#ef4444",bg:"#450a0a"},
+    {id:"cam_termica",n:"Cámara Térmica",s:"Perimetral",c:"#ef4444",bg:"#450a0a"},
+    {id:"cam_domo_4k",n:"Cámara IP 4K",s:"Ultra HD 8MP",c:"#a855f7",bg:"#3b0764"},
+  ]},
+  {cat:"Cámaras analógicas",items:[
+    {id:"cam_domo_ana",n:"Cám. Domo HDTVI",s:"2MP analógica",c:"#60a5fa",bg:"#1e3a5f"},
+    {id:"cam_bala_ana",n:"Cám. Bala HDTVI",s:"2MP exterior",c:"#60a5fa",bg:"#1e3a5f"},
+    {id:"cam_domo_ahd",n:"Cám. Domo AHD",s:"4MP analógica",c:"#60a5fa",bg:"#1e3a5f"},
+    {id:"cam_ptz_ana",n:"Cám. PTZ analógica",s:"Speed dome",c:"#60a5fa",bg:"#1e3a5f"},
+  ]},
+  {cat:"Grabación y red",items:[
+    {id:"nvr",n:"NVR",s:"8/16/32 ch IP",c:"#94a3b8",bg:"#1e293b"},
+    {id:"dvr",n:"DVR",s:"8/16/32 canales",c:"#94a3b8",bg:"#1e293b"},
+    {id:"switch_poe",n:"Switch PoE",s:"8/16/24 puertos",c:"#94a3b8",bg:"#1e293b"},
+    {id:"router",n:"Router / Firewall",s:"WiFi / fibra",c:"#94a3b8",bg:"#1e293b"},
+    {id:"rack_6u",n:"Rack 6U",s:"Cuarto técnico",c:"#94a3b8",bg:"#1e293b"},
+    {id:"rack_12u",n:"Rack 12U",s:"Freestanding",c:"#94a3b8",bg:"#1e293b"},
+    {id:"rack_22u",n:"Rack 22U",s:"Gabinete grande",c:"#94a3b8",bg:"#1e293b"},
+    {id:"patch_panel",n:"Patch Panel",s:"24 puertos Cat6",c:"#94a3b8",bg:"#1e293b"},
+    {id:"ups_1kva",n:"UPS 1kVA",s:"Para red",c:"#10b981",bg:"#064e3b"},
+    {id:"ups_2kva",n:"UPS 2kVA",s:"Para grabación",c:"#10b981",bg:"#064e3b"},
+    {id:"ups_6kva",n:"UPS 6kVA",s:"Cuarto técnico",c:"#10b981",bg:"#064e3b"},
+    {id:"fuente_12v",n:"Fuente 12V DC",s:"5A / 10A / 20A",c:"#10b981",bg:"#064e3b"},
+    {id:"fuente_24v",n:"Fuente 24V AC",s:"Para cerraduras",c:"#10b981",bg:"#064e3b"},
+    {id:"monitor_22",n:'Monitor 22"',s:"Full HD",c:"#94a3b8",bg:"#1e293b"},
+    {id:"monitor_32",n:'Monitor 32"',s:"Videomuro",c:"#94a3b8",bg:"#1e293b"},
+    {id:"servidor_vms",n:"Servidor VMS",s:"64ch+ gestión",c:"#94a3b8",bg:"#1e293b"},
+  ]},
+  {cat:"Intrusión y alarma",items:[
+    {id:"panel_alarma",n:"Panel de alarma",s:"DSC / Paradox",c:"#ef4444",bg:"#450a0a"},
+    {id:"teclado_alarma",n:"Teclado alarma",s:"LCD / LED",c:"#f59e0b",bg:"#451a03"},
+    {id:"pir_simple",n:"Sensor PIR",s:"Movimiento interior",c:"#f59e0b",bg:"#451a03"},
+    {id:"pir_doble",n:"PIR doble tecnología",s:"Anti-máscara",c:"#f59e0b",bg:"#451a03"},
+    {id:"pir_cortina",n:"PIR de cortina",s:"Para ventanas",c:"#f59e0b",bg:"#451a03"},
+    {id:"pir_exterior",n:"PIR exterior",s:"Bajo techo",c:"#f59e0b",bg:"#451a03"},
+    {id:"detector_humo",n:"Detector humo",s:"Fotoeléctrico",c:"#ef4444",bg:"#450a0a"},
+    {id:"detector_gas",n:"Detector gas",s:"GLP / CO2",c:"#ef4444",bg:"#450a0a"},
+    {id:"detector_inund",n:"Detector inundación",s:"Sensor de agua",c:"#ef4444",bg:"#450a0a"},
+    {id:"detector_temp",n:"Detector temperatura",s:"Termovelocimétrico",c:"#ef4444",bg:"#450a0a"},
+    {id:"barrera_infr",n:"Barrera infrarroja",s:"Perimetral 2/4 haces",c:"#f59e0b",bg:"#451a03"},
+    {id:"sirena_int",n:"Sirena interior",s:"110dB piezo",c:"#ef4444",bg:"#450a0a"},
+    {id:"sirena_ext",n:"Sirena exterior",s:"Con flash 120dB",c:"#ef4444",bg:"#450a0a"},
+    {id:"repetidor",n:"Repetidor RF",s:"Para sensores inalám.",c:"#f59e0b",bg:"#451a03"},
+  ]},
+  {cat:"Intercomunicación",items:[
+    {id:"central_intercom",n:"Central intercomunic.",s:"Master / esclavo",c:"#3b82f6",bg:"#1e3a5f"},
+    {id:"telefono_ip",n:"Teléfono SIP/IP",s:"Para portería",c:"#3b82f6",bg:"#1e3a5f"},
+    {id:"intercom_video",n:"Intercom con video",s:'Pantalla 7"',c:"#3b82f6",bg:"#1e3a5f"},
+    {id:"altavoz_pa",n:"Altavoz PA",s:"Instalación techo",c:"#3b82f6",bg:"#1e3a5f"},
+  ]},
+  {cat:"Infraestructura",items:[
+    {id:"caja_paso_p",n:"Caja paso plástica",s:"10x10 / 15x15 cm",c:"#6b7280",bg:"#1f2937"},
+    {id:"caja_paso_m",n:"Caja paso metálica",s:"15x15 / 30x30 cm",c:"#6b7280",bg:"#1f2937"},
+    {id:"roseta_rj45",n:"Roseta RJ45",s:"Cat6 / FTP",c:"#6b7280",bg:"#1f2937"},
+    {id:"poste_3m",n:"Poste cámara 3m",s:"Galvanizado",c:"#6b7280",bg:"#1f2937"},
+    {id:"poste_4m",n:"Poste cámara 4m",s:"Galvanizado",c:"#6b7280",bg:"#1f2937"},
+    {id:"soporte_pared",n:"Soporte de pared",s:"Brazo extensible",c:"#6b7280",bg:"#1f2937"},
+    {id:"toma_220v",n:"Toma 220V",s:"Para racks/UPS",c:"#6b7280",bg:"#1f2937"},
+    {id:"breaker",n:"Breaker / Flipón",s:"Circuito CCTV",c:"#6b7280",bg:"#1f2937"},
+    {id:"transformador",n:"Transformador",s:"220V / 110V",c:"#6b7280",bg:"#1f2937"},
+    {id:"tierra_fisica",n:"Tierra física",s:"Puesta a tierra",c:"#6b7280",bg:"#1f2937"},
+  ]},
+];
+
+const ARCH_CATS=[
+  {cat:"Elementos arquitectónicos",items:[
+    {id:"arch_wall",n:"Pared",s:"Doble línea estructural",c:"#94a3b8",action:"wall"},
+    {id:"arch_door",n:"Puerta",s:"Arco de apertura",c:"#f59e0b",action:"door"},
+    {id:"arch_win",n:"Ventana",s:"Triple línea con ticks",c:"#60a5fa",action:"win"},
+    {id:"arch_conduit",n:"Tubería / Conducto",s:"EMT / PVC / Canaleta",c:"#22c55e",action:"conduit"},
+  ]},
+  {cat:"Anotaciones",items:[
+    {id:"arch_text",n:"Texto libre",s:"Nota / acotación / título",c:"#7a9bb8",action:"text"},
+  ]},
+];
+
+const ZC={
+  comun:{fill:"rgba(37,99,235,.09)",stroke:"#2563eb",label:"Área común"},
+  restringida:{fill:"rgba(220,38,38,.09)",stroke:"#dc2626",label:"Área restringida"},
+  tecnica:{fill:"rgba(217,119,6,.09)",stroke:"#d97706",label:"Cuarto técnico"},
+  exterior:{fill:"rgba(5,150,105,.09)",stroke:"#059669",label:"Exterior"},
+  parqueadero:{fill:"rgba(148,163,184,.09)",stroke:"#94a3b8",label:"Parqueadero"},
+  escaleras:{fill:"rgba(236,72,153,.09)",stroke:"#ec4899",label:"Escaleras"},
+  vip:{fill:"rgba(124,58,237,.09)",stroke:"#7c3aed",label:"Área VIP"},
+  lobby:{fill:"rgba(16,185,129,.09)",stroke:"#10b981",label:"Lobby"},
+  servidores:{fill:"rgba(250,204,21,.09)",stroke:"#eab308",label:"Sala servidores"},
+};
+
+const WIRE_COLORS={utp:"#3b82f6",coaxial:"#a3a3a3",fibra:"#f59e0b",rs485:"#22c55e",v220:"#ef4444",poe:"#a855f7",hdmi:"#06b6d4"};
+const WIRE_LABELS={utp:"UTP Cat6",coaxial:"Coaxial",fibra:"Fibra OP",v220:"220V",rs485:"RS-485",poe:"PoE",hdmi:"HDMI"};
+const WIRE_DASH={utp:[],coaxial:[6,3],fibra:[],v220:[2,4],rs485:[8,3],poe:[],hdmi:[3,3]};
+const WALL_COLORS={wall:"#94a3b8",door:"#f59e0b",win:"#60a5fa",conduit:"#22c55e"};
+const WALL_LABELS={wall:"Pared",door:"Puerta",win:"Ventana",conduit:"Tubería"};
+
+// ═══ STATE ═══
+let scale=1, ox=40, oy=40;
+let tool="select", wallSub="wall", activeEq=null;
+let items=[], zones=[], wires=[], walls=[], texts=[];
+let selId=null, selType=null;
+let undoStack=[], redoStack=[];
+let is3D=false, showGrid=true, showMinimap=false, snapEnabled=true;
+let dragEl=null, dragOff={x:0,y:0};
+let wireFrom=null;
+// ZONE FIX: track start properly for touch
+let zoneActive=false, zoneStart=null, zonePend=null;
+let wallDrawing=false, wallStart=null;
+let panning=false, panStart=null, panOff=null;
+let pinching=false, pinchDist0=0, pinchScale0=1, pinchOx0=0, pinchOy0=0;
+let idxC=0;
+let textPend=null;
+let currentTab="equip";
+let projData={name:"",client:"",nit:"",addr:"",rev:"Rev. A",date:new Date().toISOString().slice(0,10),notes:""};
+
+const ca=document.getElementById("ca");
+const gc=document.getElementById("gc");
+const mc2=document.getElementById("mc");
+const oc2=document.getElementById("oc");
+const gx=gc.getContext("2d");
+const mx=mc2.getContext("2d");
+const ox2=oc2.getContext("2d");
+
+// ═══ RESIZE ═══
+function resize(){
+  const r=ca.getBoundingClientRect();
+  [gc,mc2,oc2].forEach(c=>{c.width=r.width;c.height=r.height;});
+  render();
+}
+window.addEventListener("resize",resize);
+new ResizeObserver(resize).observe(ca);
+setTimeout(resize,100);
+
+// ═══ TABS ═══
+function switchTab(tab){
+  currentTab=tab;
+  document.getElementById("tab-equip").classList.toggle("on",tab==="equip");
+  document.getElementById("tab-arch").classList.toggle("on",tab==="arch");
+  buildSidebar(document.getElementById("srch").value);
+}
+
+// ═══ SIDEBAR ═══
+function buildSidebar(filter=""){
+  const fl=filter.toLowerCase();
+  let h="",total=0;
+  if(currentTab==="equip"){
+    EQUIPS.forEach(cat=>{
+      const it=cat.items.filter(e=>!fl||e.n.toLowerCase().includes(fl)||e.s.toLowerCase().includes(fl));
+      if(!it.length)return;
+      h+=`<div class="cat-hdr">${cat.cat}</div>`;
+      it.forEach(e=>{
+        total++;
+        const a=activeEq&&activeEq.id===e.id?"active":"";
+        h+=`<div class="eq-card ${a}" onclick="pickEq('${e.id}')" title="${e.n}">
+          <div class="eq-ico" style="background:${e.bg}">
+            <canvas id="ico-${e.id}" width="32" height="32" style="border-radius:4px;display:block;"></canvas>
+          </div>
+          <div><div class="eq-name">${e.n}</div><div class="eq-sub">${e.s}</div></div>
+        </div>`;
+      });
+    });
+  } else {
+    ARCH_CATS.forEach(cat=>{
+      h+=`<div class="cat-hdr">${cat.cat}</div>`;
+      cat.items.forEach(e=>{
+        total++;
+        const emoji={wall:"▬",door:"🚪",win:"🪟",conduit:"⋯",text:"T"}[e.action]||"⬛";
+        h+=`<div class="eq-card" onclick="pickArch('${e.action}')" title="${e.n}">
+          <div class="eq-ico" style="background:#1f2937;font-size:18px;color:${e.c};">${emoji}</div>
+          <div><div class="eq-name">${e.n}</div><div class="eq-sub">${e.s}</div></div>
+        </div>`;
+      });
+    });
+  }
+  document.getElementById("eq-list").innerHTML=h;
+  document.getElementById("sb-cnt").textContent=total+" elemento"+(total!==1?"s":"");
+  if(currentTab==="equip"){
+    requestAnimationFrame(()=>{
+      EQUIPS.forEach(cat=>cat.items.filter(e=>!fl||e.n.toLowerCase().includes(fl)).forEach(e=>{
+        const cv=document.getElementById("ico-"+e.id);if(!cv)return;
+        const c=cv.getContext("2d");
+        c.clearRect(0,0,32,32);c.fillStyle=e.bg;c.fillRect(0,0,32,32);
+        drawIcon(c,e.id,16,16,32,e.c);
+      }));
+    });
+  }
+}
+buildSidebar();
+
+function findEq(id){for(const c of EQUIPS)for(const e of c.items)if(e.id===id)return e;return null;}
+function pickEq(id){activeEq=findEq(id);setTool("place");buildSidebar(document.getElementById("srch").value);}
+function pickArch(action){
+  if(action==="text")setTool("text");
+  else setWallSub(action);
+}
+
+// ═══ TOOLS ═══
+function setTool(t){
+  tool=t;
+  // Reset all buttons
+  ["select","zone","wire","text"].forEach(tt=>{const b=document.getElementById("btn-"+tt);if(b)b.classList.toggle("on",t===tt);});
+  ["wall","door","window","conduit"].forEach(s=>{const b=document.getElementById("btn-"+s);if(b)b.classList.remove("on");});
+  if(t==="wall"||t==="arch"){
+    const b=document.getElementById("btn-"+wallSub);if(b)b.classList.add("on");
+  }
+  document.getElementById("btn-select").classList.toggle("on",t==="select"||t==="place");
+
+  // Cursor class
+  ca.className=t==="place"?"placing":t==="zone"?"zoning":t==="wire"?"wiring":
+    t==="wall"?"arching":t==="text"?"texting":"";
+
+  // Dot
+  const dot=document.getElementById("st-dot");
+  dot.className="st-dot"+(t==="wire"||t==="zone"?" warn":(t==="wall"||t==="text")?" active":"");
+
+  // Status text
+  const L={select:"Seleccionar / Mover",place:"Colocando: "+(activeEq?.n||"—"),
+    zone:"ZONA: Toca y ARRASTRA para dibujar",
+    wire:"Cable: toca origen → destino",
+    text:"Texto: toca en el plano"};
+  const WL={wall:"Pared: toca inicio luego fin",door:"Puerta: toca inicio luego fin",win:"Ventana: toca inicio luego fin",conduit:"Tubería: toca inicio luego fin"};
+  document.getElementById("st-tool").textContent=(t==="wall"?(WL[wallSub]||"Dibujar"):L[t])||t;
+
+  // Hints
+  document.getElementById("zone-hint").classList.toggle("show",t==="zone");
+  document.getElementById("wall-bar").classList.toggle("show",t==="wall");
+
+  // Reset drawing state
+  wireFrom=null;wallDrawing=false;wallStart=null;clearOv();
+}
+
+function setWallSub(sub){
+  wallSub=sub;
+  setTool("wall");
+  ["wall","door","win","conduit"].forEach(s=>{
+    const a=document.getElementById("wb-"+s);if(a)a.classList.toggle("on",s===sub);
+    const b=document.getElementById("btn-"+s);if(b)b.classList.toggle("on",s===sub);
+  });
+  // Fix: 'window' button id is btn-window, wallSub is 'win'
+  const bw=document.getElementById("btn-window");if(bw)bw.classList.toggle("on",sub==="win");
+}
+
+// ═══ COORD ═══
+function w2s(x,y){return{x:x*scale+ox,y:y*scale+oy};}
+function s2w(x,y){return{x:(x-ox)/scale,y:(y-oy)/scale};}
+function snap(v){return snapEnabled?Math.round(v/10)*10:v;}
+function trunc(s,n){return s&&s.length>n?s.slice(0,n)+"…":s;}
+
+// ═══ GRID ═══
+function drawGrid(ctx,w,h){
+  ctx.clearRect(0,0,w,h);
+  if(!showGrid)return;
+  const gs=40*scale;
+  ctx.strokeStyle="rgba(30,47,69,.42)";ctx.lineWidth=.45;
+  for(let x=((ox%gs)+gs)%gs;x<w;x+=gs){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,h);ctx.stroke();}
+  for(let y=((oy%gs)+gs)%gs;y<h;y+=gs){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke();}
+  const bs=gs*5;
+  ctx.strokeStyle="rgba(30,47,69,.75)";ctx.lineWidth=.65;
+  for(let x=((ox%bs)+bs)%bs;x<w;x+=bs){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,h);ctx.stroke();}
+  for(let y=((oy%bs)+bs)%bs;y<h;y+=bs){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke();}
+  const ps=document.getElementById("paper-sel").value.split(",");
+  ctx.strokeStyle="rgba(14,165,233,.28)";ctx.lineWidth=1.3;ctx.setLineDash([6,5]);
+  ctx.strokeRect(ox,oy,+ps[0]*scale,+ps[1]*scale);ctx.setLineDash([]);
+}
+
+// ═══ DRAW ZONE ═══
+function drawZone(ctx,z){
+  const p=w2s(z.x,z.y),ws=z.w*scale,hs=z.h*scale;
+  const zc=ZC[z.type]||ZC.comun,sel=selId===z.id;
+  ctx.fillStyle=zc.fill;ctx.fillRect(p.x,p.y,ws,hs);
+  ctx.strokeStyle=sel?zc.stroke:zc.stroke+"66";ctx.lineWidth=sel?2:1;
+  ctx.setLineDash([7,4]);ctx.strokeRect(p.x,p.y,ws,hs);ctx.setLineDash([]);
+  if(sel){ctx.strokeStyle=zc.stroke;ctx.lineWidth=2.5;ctx.strokeRect(p.x,p.y,ws,hs);}
+  const fs=Math.max(10,12*scale);
+  ctx.font=`600 ${fs}px 'IBM Plex Sans',sans-serif`;ctx.fillStyle=zc.stroke;ctx.textBaseline="top";
+  ctx.fillText((z.piso?z.piso+" · ":"")+z.name,p.x+7,p.y+6);
+  const lfs=Math.max(8,9*scale);
+  ctx.font=`${lfs}px 'IBM Plex Mono',monospace`;ctx.fillStyle=zc.stroke+"88";
+  ctx.fillText(zc.label.toUpperCase(),p.x+7,p.y+7+fs);
+  ctx.textBaseline="alphabetic";
+  // Resize handle
+  if(sel){
+    ctx.fillStyle=zc.stroke;ctx.fillRect(p.x+ws-8,p.y+hs-8,8,8);
+  }
+}
+
+// ═══ DRAW WALL ═══
+function drawWall(ctx,w){
+  const a=w2s(w.x1,w.y1),b=w2s(w.x2,w.y2),sel=selId===w.id;
+  const dx=b.x-a.x,dy=b.y-a.y,len=Math.sqrt(dx*dx+dy*dy);
+  if(len<2)return;
+  const nx=-dy/len,ny=dx/len,hw=Math.max(3,(w.thick||14)*scale*.5);
+
+  if(w.sub==="wall"){
+    const t=hw;
+    ctx.fillStyle=sel?"rgba(148,163,184,.32)":"rgba(100,120,150,.16)";
+    ctx.beginPath();
+    ctx.moveTo(a.x+nx*t,a.y+ny*t);ctx.lineTo(b.x+nx*t,b.y+ny*t);
+    ctx.lineTo(b.x-nx*t,b.y-ny*t);ctx.lineTo(a.x-nx*t,a.y-ny*t);
+    ctx.closePath();ctx.fill();
+    ctx.strokeStyle=sel?"#cbd5e1":"#94a3b8";ctx.lineWidth=sel?1.5:.9;
+    [[nx*t,ny*t],[-(nx*t),-(ny*t)]].forEach(([ox3,oy3])=>{
+      ctx.beginPath();ctx.moveTo(a.x+ox3,a.y+oy3);ctx.lineTo(b.x+ox3,b.y+oy3);ctx.stroke();
+    });
+    ctx.beginPath();
+    ctx.moveTo(a.x+nx*t,a.y+ny*t);ctx.lineTo(a.x-nx*t,a.y-ny*t);
+    ctx.moveTo(b.x+nx*t,b.y+ny*t);ctx.lineTo(b.x-nx*t,b.y-ny*t);ctx.stroke();
+    if(scale>.4){
+      const mx3=(a.x+b.x)/2,my3=(a.y+b.y)/2;
+      const wLen=(Math.sqrt((w.x2-w.x1)**2+(w.y2-w.y1)**2)/100).toFixed(2);
+      ctx.font=`${Math.max(7,8*scale)}px 'IBM Plex Mono',monospace`;
+      ctx.fillStyle="#3d5a78";ctx.textAlign="center";ctx.textBaseline="middle";
+      ctx.fillText(wLen+"m",mx3+nx*22,my3+ny*22);
+      ctx.textAlign="left";ctx.textBaseline="alphabetic";
+    }
+  } else if(w.sub==="door"){
+    const col=sel?"#fbbf24":"#f59e0b";
+    ctx.strokeStyle=col;ctx.lineWidth=sel?2:1.6;
+    ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();
+    const angle=Math.atan2(dy,dx);
+    ctx.setLineDash([4,3]);
+    ctx.beginPath();ctx.arc(a.x,a.y,len,angle,angle-Math.PI/2,true);ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.lineWidth=2;
+    ctx.beginPath();ctx.moveTo(a.x+nx*hw*.7,a.y+ny*hw*.7);ctx.lineTo(a.x-nx*hw*.7,a.y-ny*hw*.7);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(b.x+nx*hw*.7,b.y+ny*hw*.7);ctx.lineTo(b.x-nx*hw*.7,b.y-ny*hw*.7);ctx.stroke();
+  } else if(w.sub==="win"){
+    const col=sel?"#93c5fd":"#60a5fa";
+    [-.5,0,.5].forEach(f=>{
+      ctx.strokeStyle=f===0?col:col+"88";ctx.lineWidth=f===0?2:1;
+      const off=f*hw*.85;
+      ctx.beginPath();ctx.moveTo(a.x+nx*off,a.y+ny*off);ctx.lineTo(b.x+nx*off,b.y+ny*off);ctx.stroke();
+    });
+    ctx.strokeStyle=col;ctx.lineWidth=1.6;
+    [[a.x,a.y],[b.x,b.y]].forEach(([px,py])=>{
+      ctx.beginPath();ctx.moveTo(px+nx*hw,py+ny*hw);ctx.lineTo(px-nx*hw,py-ny*hw);ctx.stroke();
+    });
+  } else if(w.sub==="conduit"){
+    const col=sel?"#4ade80":"#22c55e";
+    ctx.strokeStyle=col;ctx.lineWidth=sel?2.6:2;ctx.setLineDash([10,4]);
+    ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();ctx.setLineDash([]);
+    const mx3=(a.x+b.x)/2,my3=(a.y+b.y)/2,al=6*scale,ux=dx/len,uy=dy/len;
+    ctx.fillStyle=col;
+    ctx.beginPath();ctx.moveTo(mx3+ux*al,my3+uy*al);ctx.lineTo(mx3-ux*al+uy*al*.5,my3-uy*al-ux*al*.5);ctx.lineTo(mx3-ux*al-uy*al*.5,my3-uy*al+ux*al*.5);ctx.closePath();ctx.fill();
+    if(scale>.5){
+      ctx.font=`${Math.max(8,8*scale)}px 'IBM Plex Mono',monospace`;
+      ctx.fillStyle=col+"99";ctx.textAlign="center";ctx.textBaseline="bottom";
+      ctx.fillText(w.label||"Conducto",mx3,my3-5);ctx.textAlign="left";ctx.textBaseline="alphabetic";
+    }
+  }
+  if(sel){[a,b].forEach(pt=>{ctx.fillStyle="#0ea5e9";ctx.beginPath();ctx.arc(pt.x,pt.y,6,0,Math.PI*2);ctx.fill();});}
+}
+
+// ═══ DRAW TEXT ═══
+function drawText(ctx,t){
+  const p=w2s(t.x,t.y),sel=selId===t.id;
+  const fs=Math.max(8,(t.size||13)*scale);
+  ctx.font=`${fs}px 'IBM Plex Sans',sans-serif`;
+  ctx.fillStyle=sel?t.color||"#e0eaf5":t.color||"#7a9bb8";
+  ctx.textAlign="left";ctx.textBaseline="top";
+  ctx.fillText(t.val||"",p.x,p.y);
+  if(sel){
+    const m=ctx.measureText(t.val||"");
+    ctx.strokeStyle="#0ea5e9";ctx.lineWidth=1;ctx.setLineDash([3,2]);
+    ctx.strokeRect(p.x-2,p.y-2,m.width+4,fs+4);ctx.setLineDash([]);
+  }
+  ctx.textBaseline="alphabetic";
+}
+
+// ═══ DRAW ITEM ═══
+function drawItem(ctx,it,eq){
+  const SZ=36*scale,p=w2s(it.x,it.y),sel=selId===it.id;
+  const rot=(it.rot||0)*Math.PI/180;
+  if(sel){
+    ctx.strokeStyle="rgba(14,165,233,.8)";ctx.lineWidth=2.5;
+    ctx.beginPath();
+    if(ctx.roundRect)ctx.roundRect(p.x-SZ/2-6,p.y-SZ/2-6,SZ+12,SZ+12,9);
+    else ctx.rect(p.x-SZ/2-6,p.y-SZ/2-6,SZ+12,SZ+12);
+    ctx.stroke();
+    ctx.fillStyle="rgba(14,165,233,.07)";
+    ctx.beginPath();
+    if(ctx.roundRect)ctx.roundRect(p.x-SZ/2-6,p.y-SZ/2-6,SZ+12,SZ+12,9);
+    else ctx.rect(p.x-SZ/2-6,p.y-SZ/2-6,SZ+12,SZ+12);
+    ctx.fill();
+  }
+  if(is3D){
+    const H=8*scale;
+    ctx.fillStyle=eq.bg+"66";
+    ctx.beginPath();
+    ctx.moveTo(p.x-SZ/2,p.y-SZ/2);ctx.lineTo(p.x-SZ/2-H*.5,p.y-SZ/2-H*.5);
+    ctx.lineTo(p.x+SZ/2-H*.5,p.y-SZ/2-H*.5);ctx.lineTo(p.x+SZ/2,p.y-SZ/2);
+    ctx.closePath();ctx.fill();
+  }
+  ctx.save();
+  ctx.translate(p.x,p.y);ctx.rotate(rot);
+  ctx.fillStyle=eq.bg;
+  ctx.beginPath();
+  if(ctx.roundRect)ctx.roundRect(-SZ/2,-SZ/2,SZ,SZ,7);
+  else ctx.rect(-SZ/2,-SZ/2,SZ,SZ);
+  ctx.fill();
+  ctx.strokeStyle=sel?eq.c:eq.c+"aa";ctx.lineWidth=sel?2.2:1.3;
+  ctx.beginPath();
+  if(ctx.roundRect)ctx.roundRect(-SZ/2,-SZ/2,SZ,SZ,7);
+  else ctx.rect(-SZ/2,-SZ/2,SZ,SZ);
+  ctx.stroke();
+  drawIcon(ctx,it.type,0,0,SZ,eq.c);
+  ctx.restore();
+
+  // Label
+  const lfs=Math.max(7,9*scale);
+  ctx.font=`${lfs}px 'IBM Plex Sans',sans-serif`;ctx.fillStyle="#7a9bb8";
+  ctx.textAlign="center";ctx.textBaseline="top";
+  ctx.fillText(trunc(it.label||eq.n,Math.max(6,Math.floor(65*scale/(lfs*.56)))),p.x,p.y+SZ/2+5*scale);
+  if(it.note&&scale>.5){
+    ctx.fillStyle="#3d5a78";ctx.font=`${Math.max(6,7.5*scale)}px 'IBM Plex Mono',monospace`;
+    ctx.fillText(trunc(it.note,12),p.x,p.y+SZ/2+5*scale+lfs+2);
+  }
+  if(it.idx&&scale>.55){
+    ctx.fillStyle=eq.c;ctx.font=`bold ${Math.max(7,8.5*scale)}px 'IBM Plex Mono',monospace`;
+    ctx.textAlign="right";ctx.textBaseline="top";
+    ctx.fillText("#"+it.idx,p.x+SZ/2-3,p.y-SZ/2+3);
+  }
+  ctx.textAlign="left";ctx.textBaseline="alphabetic";
+}
+
+// ═══ DRAW WIRE ═══
+function drawWire(ctx,w){
+  const a=itmCenter(w.a),b=itmCenter(w.b);if(!a||!b)return;
+  const pa=w2s(a.x,a.y),pb=w2s(b.x,b.y);
+  const col=WIRE_COLORS[w.type]||"#3b82f6",sel=selId===w.id;
+  ctx.strokeStyle=sel?col:col+"bb";ctx.lineWidth=sel?2.6:1.7;
+  ctx.setLineDash(WIRE_DASH[w.type]||[]);
+  ctx.beginPath();ctx.moveTo(pa.x,pa.y);
+  const cmx=(pa.x+pb.x)/2;
+  ctx.bezierCurveTo(cmx,pa.y,cmx,pb.y,pb.x,pb.y);
+  ctx.stroke();ctx.setLineDash([]);
+  const mid={x:(pa.x+pb.x)/2,y:(pa.y+pb.y)/2};
+  ctx.fillStyle=col;ctx.beginPath();ctx.arc(mid.x,mid.y,3,0,Math.PI*2);ctx.fill();
+  if(scale>.6){
+    ctx.font=`600 ${Math.max(7,8*scale)}px 'IBM Plex Mono',monospace`;
+    ctx.fillStyle=col+"aa";ctx.textAlign="center";
+    ctx.fillText(WIRE_LABELS[w.type]||w.type,mid.x,mid.y-7);ctx.textAlign="left";
+  }
+  const dx=pb.x-pa.x,dy2=pb.y-pa.y,len=Math.sqrt(dx*dx+dy2*dy2);
+  if(len>50){
+    const ux=dx/len,uy=dy2/len,al=8*scale;
+    ctx.fillStyle=col;ctx.beginPath();
+    ctx.moveTo(mid.x+ux*al,mid.y+uy*al);ctx.lineTo(mid.x-ux*al+uy*al*.5,mid.y-uy*al-ux*al*.5);ctx.lineTo(mid.x-ux*al-uy*al*.5,mid.y-uy*al+ux*al*.5);ctx.closePath();ctx.fill();
+  }
+  if(sel)[pa,pb].forEach(pt=>{ctx.fillStyle="#0ea5e9";ctx.beginPath();ctx.arc(pt.x,pt.y,5,0,Math.PI*2);ctx.fill();});
+}
+
+// ═══ RENDER ═══
+function render(){
+  const W=mc2.width,H=mc2.height;
+  drawGrid(gx,W,H);
+  mx.clearRect(0,0,W,H);
+  zones.forEach(z=>drawZone(mx,z));
+  walls.forEach(w=>drawWall(mx,w));
+  wires.forEach(w=>drawWire(mx,w));
+  items.forEach(it=>{const eq=findEq(it.type);if(eq)drawItem(mx,it,eq);});
+  texts.forEach(t=>drawText(mx,t));
+  if(showMinimap)renderMinimap();
+}
+
+function clearOv(){ox2.clearRect(0,0,oc2.width,oc2.height);}
+function itmCenter(id){const it=items.find(i=>i.id===id);return it?{x:it.x,y:it.y}:null;}
+
+// ═══ HIT TEST ═══
+// Larger hit radius for stylus/finger
+function hitItem(wx,wy){
+  const SZ=20;
+  for(let i=items.length-1;i>=0;i--){const it=items[i];if(Math.abs(it.x-wx)<SZ&&Math.abs(it.y-wy)<SZ)return it;}
+  return null;
+}
+function hitZone(wx,wy){
+  for(let i=zones.length-1;i>=0;i--){const z=zones[i];if(wx>=z.x&&wx<=z.x+z.w&&wy>=z.y&&wy<=z.y+z.h)return z;}
+  return null;
+}
+function hitWall(wx,wy){
+  const threshold=15/scale;
+  for(let i=walls.length-1;i>=0;i--){
+    const w=walls[i];const dx=w.x2-w.x1,dy=w.y2-w.y1,len2=dx*dx+dy*dy;
+    if(len2===0)continue;
+    const t=Math.max(0,Math.min(1,((wx-w.x1)*dx+(wy-w.y1)*dy)/len2));
+    const px=w.x1+t*dx,py=w.y1+t*dy;
+    if(Math.sqrt((wx-px)**2+(wy-py)**2)<threshold)return w;
+  }
+  return null;
+}
+function hitText(wx,wy){
+  for(let i=texts.length-1;i>=0;i--){const t=texts[i];if(Math.abs(t.x-wx)<90&&Math.abs(t.y-wy)<24)return t;}
+  return null;
+}
+
+// ═══ EVENT POSITION — handles both mouse and touch ═══
+function evPos(e){
+  const r=oc2.getBoundingClientRect();
+  // Touch: use changedTouches if touches is empty (touchend)
+  if(e.touches&&e.touches.length>0)
+    return{x:e.touches[0].clientX-r.left,y:e.touches[0].clientY-r.top};
+  if(e.changedTouches&&e.changedTouches.length>0)
+    return{x:e.changedTouches[0].clientX-r.left,y:e.changedTouches[0].clientY-r.top};
+  return{x:e.clientX-r.left,y:e.clientY-r.top};
+}
+
+function pinchDist(e){
+  const dx=e.touches[0].clientX-e.touches[1].clientX;
+  const dy=e.touches[0].clientY-e.touches[1].clientY;
+  return Math.sqrt(dx*dx+dy*dy);
+}
+
+// ═══ POINTER DOWN ═══
+function onDown(e){
+  if(e.button===1){startPan(e);return;}
+  hideCTX();
+
+  // Pinch-to-zoom: if 2 fingers, start pinch
+  if(e.touches&&e.touches.length===2){
+    pinching=true;panning=false;dragEl=null;
+    pinchDist0=pinchDist(e);pinchScale0=scale;pinchOx0=ox;pinchOy0=oy;
+    return;
+  }
+
+  const sp=evPos(e);const wp=s2w(sp.x,sp.y);
+
+  if(tool==="place"&&activeEq){
+    saveUndo();
+    const sn={x:snap(wp.x),y:snap(wp.y)};idxC++;
+    items.push({id:"i"+idxC,type:activeEq.id,x:sn.x,y:sn.y,
+      label:activeEq.n,note:"",rot:0,
+      idx:items.filter(i=>i.type===activeEq.id).length+1});
+    updCnt();render();
+    showToast(activeEq.n+" #"+(items.filter(i=>i.type===activeEq.id).length)+" colocado","ok");
+    return;
+  }
+
+  // ── ZONE: START on touchdown ──
+  if(tool==="zone"){
+    zoneActive=true;
+    zoneStart={x:snap(wp.x),y:snap(wp.y)};
+    return;
+  }
+
+  if(tool==="wall"){
+    if(!wallDrawing){wallDrawing=true;wallStart={x:snap(wp.x),y:snap(wp.y)};showToast("Ahora toca el punto final","info");}
+    else{
+      const ex=snap(wp.x),ey=snap(wp.y);
+      if(Math.abs(ex-wallStart.x)>5||Math.abs(ey-wallStart.y)>5){
+        saveUndo();idxC++;
+        walls.push({id:"wl"+idxC,sub:wallSub,x1:wallStart.x,y1:wallStart.y,x2:ex,y2:ey,
+          thick:+document.getElementById("wall-thick-sel").value||14,
+          label:WALL_LABELS[wallSub]});
+        updCnt();render();showToast(WALL_LABELS[wallSub]+" agregada","ok");
+      }
+      wallDrawing=false;wallStart=null;clearOv();
+    }
+    return;
+  }
+
+  if(tool==="text"){
+    textPend={x:snap(wp.x),y:snap(wp.y)};
+    document.getElementById("txt-wrap").classList.add("show");
+    setTimeout(()=>document.getElementById("txt-val").focus(),100);
+    return;
+  }
+
+  if(tool==="wire"){
+    const hit=hitItem(wp.x,wp.y);
+    if(hit){
+      if(!wireFrom){wireFrom=hit.id;showToast("Toca el equipo destino","info");}
+      else if(wireFrom!==hit.id){
+        saveUndo();idxC++;
+        wires.push({id:"w"+idxC,a:wireFrom,b:hit.id,type:document.getElementById("wire-type").value});
+        wireFrom=null;updCnt();render();showToast("Cable "+WIRE_LABELS[document.getElementById("wire-type").value]+" conectado","ok");
+      }
+    }
+    return;
+  }
+
+  if(tool==="select"){
+    const hit=hitItem(wp.x,wp.y);
+    if(hit){selId=hit.id;selType="item";dragEl=hit;dragOff={x:wp.x-hit.x,y:wp.y-hit.y};updSel();showProps();render();return;}
+    const hw=hitWall(wp.x,wp.y);
+    if(hw){selId=hw.id;selType="wall";updSel();showProps();render();return;}
+    const ht=hitText(wp.x,wp.y);
+    if(ht){selId=ht.id;selType="text";dragEl=ht;dragOff={x:wp.x-ht.x,y:wp.y-ht.y};updSel();showProps();render();return;}
+    const hz=hitZone(wp.x,wp.y);
+    if(hz){selId=hz.id;selType="zone";updSel();showProps();render();return;}
+    selId=null;selType=null;hideProps();render();
+    startPan(e);
+  }
+}
+
+// ═══ POINTER MOVE ═══
+function onMove(e){
+  if(e.preventDefault)e.preventDefault();
+
+  // Pinch zoom
+  if(pinching&&e.touches&&e.touches.length===2){
+    const d=pinchDist(e);
+    const ns=Math.max(.15,Math.min(6,pinchScale0*(d/pinchDist0)));
+    // Center of pinch in screen coords
+    const cx=(e.touches[0].clientX+e.touches[1].clientX)/2-ca.getBoundingClientRect().left;
+    const cy2=(e.touches[0].clientY+e.touches[1].clientY)/2-ca.getBoundingClientRect().top;
+    ox=cx-(cx-pinchOx0)*(ns/pinchScale0);
+    oy=cy2-(cy2-pinchOy0)*(ns/pinchScale0);
+    scale=ns;
+    document.getElementById("zoom-lbl").textContent=Math.round(scale*100)+"%";
+    render();return;
+  }
+
+  const sp=evPos(e);const wp=s2w(sp.x,sp.y);
+  document.getElementById("st-x").textContent=Math.round(wp.x);
+  document.getElementById("st-y").textContent=Math.round(wp.y);
+
+  if(panning&&panStart){ox=panOff.x+(sp.x-panStart.x);oy=panOff.y+(sp.y-panStart.y);render();return;}
+
+  if(dragEl&&tool==="select"){
+    const sn={x:snap(wp.x-dragOff.x),y:snap(wp.y-dragOff.y)};
+    dragEl.x=sn.x;dragEl.y=sn.y;render();return;
+  }
+
+  // ── ZONE preview on move ──
+  if(zoneActive&&zoneStart){
+    clearOv();
+    const x=Math.min(wp.x,zoneStart.x),y=Math.min(wp.y,zoneStart.y);
+    const ws=Math.abs(wp.x-zoneStart.x)*scale,hs=Math.abs(wp.y-zoneStart.y)*scale;
+    const ps=w2s(x,y);
+    ox2.fillStyle="rgba(14,165,233,.08)";ox2.fillRect(ps.x,ps.y,ws,hs);
+    ox2.strokeStyle="#0ea5e9";ox2.lineWidth=2;ox2.setLineDash([6,4]);
+    ox2.strokeRect(ps.x,ps.y,ws,hs);ox2.setLineDash([]);
+    // Size label
+    const wm=Math.abs(wp.x-zoneStart.x)/100,hm=Math.abs(wp.y-zoneStart.y)/100;
+    ox2.fillStyle="#0ea5e9";ox2.font="bold 12px 'IBM Plex Mono',monospace";
+    ox2.textAlign="center";ox2.textBaseline="top";
+    ox2.fillText(`${wm.toFixed(1)}m × ${hm.toFixed(1)}m`,ps.x+ws/2,ps.y+4);
+    ox2.textAlign="left";ox2.textBaseline="alphabetic";
+    return;
+  }
+
+  if(wallDrawing&&wallStart&&tool==="wall"){
+    clearOv();
+    const ex=snap(wp.x),ey=snap(wp.y);
+    const col=WALL_COLORS[wallSub]||"#94a3b8";
+    const ps=w2s(wallStart.x,wallStart.y),pe=w2s(ex,ey);
+    ox2.strokeStyle=col+"aa";ox2.lineWidth=wallSub==="wall"?10:3;
+    ox2.setLineDash(wallSub==="conduit"?[8,4]:[]);
+    ox2.beginPath();ox2.moveTo(ps.x,ps.y);ox2.lineTo(pe.x,pe.y);ox2.stroke();ox2.setLineDash([]);
+    ox2.fillStyle=col;ox2.beginPath();ox2.arc(ps.x,ps.y,7,0,Math.PI*2);ox2.fill();
+    return;
+  }
+
+  if(tool==="place"&&activeEq){
+    const sn={x:snap(wp.x),y:snap(wp.y)};clearOv();
+    const SZ=36*scale,p=w2s(sn.x,sn.y),eq=activeEq;
+    ox2.globalAlpha=.55;
+    ox2.fillStyle=eq.bg;ox2.beginPath();
+    if(ox2.roundRect)ox2.roundRect(p.x-SZ/2,p.y-SZ/2,SZ,SZ,7);else ox2.rect(p.x-SZ/2,p.y-SZ/2,SZ,SZ);
+    ox2.fill();
+    ox2.strokeStyle=eq.c;ox2.lineWidth=1.5;ox2.beginPath();
+    if(ox2.roundRect)ox2.roundRect(p.x-SZ/2,p.y-SZ/2,SZ,SZ,7);else ox2.rect(p.x-SZ/2,p.y-SZ/2,SZ,SZ);
+    ox2.stroke();
+    drawIcon(ox2,eq.id,p.x,p.y,SZ,eq.c);ox2.globalAlpha=1;
+    return;
+  }
+
+  if(tool==="wire"&&wireFrom){
+    const src=itmCenter(wireFrom);
+    if(src){
+      clearOv();
+      const ps=w2s(src.x,src.y);
+      const col=WIRE_COLORS[document.getElementById("wire-type").value]||"#3b82f6";
+      ox2.strokeStyle=col+"77";ox2.lineWidth=2;ox2.setLineDash([5,4]);
+      ox2.beginPath();ox2.moveTo(ps.x,ps.y);ox2.lineTo(sp.x,sp.y);ox2.stroke();ox2.setLineDash([]);
+    }
+    return;
+  }
+
+  const hit=hitItem(wp.x,wp.y);
+  if(hit&&!dragEl){
+    const eq=findEq(hit.type);
+    showTip(sp.x+16,sp.y+14,`<div class="tip-title">${eq?.n||hit.type}</div>${hit.note?'<div class="tip-note">'+hit.note+"</div>":""}${hit.idx?"<div class='tip-note'>#"+hit.idx+"</div>":""}`);
+  } else hideTip();
+}
+
+// ═══ POINTER UP — CRITICAL ZONE FIX ═══
+function onUp(e){
+  // End pinch
+  if(pinching){pinching=false;return;}
+
+  if(panning){panning=false;panStart=null;return;}
+  if(dragEl){saveUndo();dragEl=null;return;}
+
+  // ── ZONE: Complete on release ──
+  if(zoneActive&&zoneStart){
+    // Use changedTouches for touchend (touches is empty at this point!)
+    const sp=evPos(e);
+    const wp=s2w(sp.x,sp.y);
+    const x=Math.min(wp.x,zoneStart.x),y=Math.min(wp.y,zoneStart.y);
+    const ws=Math.abs(wp.x-zoneStart.x),hs=Math.abs(wp.y-zoneStart.y);
+    zoneActive=false;clearOv();
+    if(ws>25&&hs>25){
+      zonePend={x:snap(x),y:snap(y),w:snap(ws),h:snap(hs)};
+      // Small delay so touch release doesn't immediately dismiss modal
+      setTimeout(()=>{
+        document.getElementById("zm-wrap").classList.add("show");
+        document.getElementById("zm-name").focus();
+      },80);
+    } else {
+      showToast("Zona muy pequeña — arrastra más","err");
+    }
+    zoneStart=null;
+    return;
+  }
+}
+
+function startPan(e){panning=true;const sp=evPos(e);panStart={x:sp.x,y:sp.y};panOff={x:ox,y:oy};}
+
+// ═══ EVENT LISTENERS ═══
+oc2.addEventListener("mousedown",onDown);
+oc2.addEventListener("mousemove",onMove);
+window.addEventListener("mouseup",onUp);
+
+// Touch events — CRITICAL: use passive:false only on canvas, not window
+oc2.addEventListener("touchstart",e=>{
+  e.preventDefault();// required to block browser pan
+  if(e.touches.length===2)onDown(e);
+  else if(e.touches.length===1)onDown(e);
+},{passive:false});
+
+oc2.addEventListener("touchmove",e=>{
+  e.preventDefault();
+  onMove(e);
+},{passive:false});
+
+oc2.addEventListener("touchend",e=>{
+  e.preventDefault();
+  onUp(e);
+},{passive:false});
+
+// Wheel zoom
+oc2.addEventListener("wheel",e=>{
+  e.preventDefault();
+  const r=ca.getBoundingClientRect();
+  const sp={x:e.clientX-r.left,y:e.clientY-r.top};
+  const d=e.deltaY>0?-.13:.13;
+  const ns=Math.max(.1,Math.min(6,scale+d));
+  ox=sp.x-(sp.x-ox)*(ns/scale);oy=sp.y-(sp.y-oy)*(ns/scale);
+  scale=ns;document.getElementById("zoom-lbl").textContent=Math.round(scale*100)+"%";
+  render();
+},{passive:false});
+
+// Right-click context menu
+oc2.addEventListener("contextmenu",e=>{
+  e.preventDefault();
+  const r=oc2.getBoundingClientRect();
+  const wp=s2w(e.clientX-r.left,e.clientY-r.top);
+  const hit=hitItem(wp.x,wp.y);
+  if(hit){selId=hit.id;selType="item";render();showCTX(e.clientX,e.clientY);}
+});
+
+// Long-press context menu for tablet
+let longPressTimer=null;
+oc2.addEventListener("touchstart",e=>{
+  if(e.touches.length===1){
+    const r=oc2.getBoundingClientRect();
+    const wp=s2w(e.touches[0].clientX-r.left,e.touches[0].clientY-r.top);
+    clearTimeout(longPressTimer);
+    longPressTimer=setTimeout(()=>{
+      const hit=hitItem(wp.x,wp.y);
+      if(hit){selId=hit.id;selType="item";render();showCTX(e.touches[0].clientX,e.touches[0].clientY);}
+    },650);
+  }},{passive:true});
+oc2.addEventListener("touchend",()=>clearTimeout(longPressTimer),{passive:true});
+oc2.addEventListener("touchmove",()=>clearTimeout(longPressTimer),{passive:true});
+
+function showCTX(x,y){
+  const m=document.getElementById("ctx");
+  m.style.left=Math.min(x,window.innerWidth-185)+"px";
+  m.style.top=Math.min(y,window.innerHeight-180)+"px";
+  m.style.display="block";
+}
+function hideCTX(){document.getElementById("ctx").style.display="none";}
+window.addEventListener("click",e=>{if(!e.target.closest("#ctx"))hideCTX();});
+function ctxDup(){dupSel();hideCTX();}
+function ctxProps(){showProps();hideCTX();}
+function ctxWire(){wireFrom=selId;setTool("wire");hideCTX();}
+function ctxRotate(){const it=items.find(i=>i.id===selId);if(it){saveUndo();it.rot=((it.rot||0)+90)%360;render();}hideCTX();}
+function ctxDel(){delSel();hideCTX();}
+
+// ═══ PROPS ═══
+function updSel(){
+  const it=items.find(i=>i.id===selId),eq=it?findEq(it.type):null;
+  const z=zones.find(z=>z.id===selId),w=walls.find(w=>w.id===selId),t=texts.find(t=>t.id===selId);
+  document.getElementById("st-sel").textContent=eq?eq.n:z?z.name:w?WALL_LABELS[w.sub]||"Pared":t?"Texto":"";
+}
+
+function showProps(){
+  const pp=document.getElementById("props");pp.classList.add("show");
+  const it=items.find(i=>i.id===selId);
+  const wl=walls.find(w=>w.id===selId);
+  const tz=texts.find(t=>t.id===selId);
+  const zo=zones.find(z=>z.id===selId);
+  if(it){
+    const eq=findEq(it.type);
+    document.getElementById("pr-body").innerHTML=`
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+        <canvas id="pr-ico-cv" width="38" height="38" style="border-radius:6px;background:${eq?.bg||'#1e293b'};display:block;flex-shrink:0;"></canvas>
+        <div><div style="font-size:12px;font-weight:600;color:var(--txt)">${eq?.n||it.type}</div>
+        <div style="font-size:9px;color:var(--txt3);font-family:var(--mono);margin-top:2px;">${eq?.s||""}</div></div>
+      </div>
+      <div class="pr"><div class="pr-lbl">Etiqueta</div><input class="pr-inp" value="${(it.label||"").replace(/"/g,'&quot;')}" oninput="updProp('label',this.value)"/></div>
+      <div class="pr"><div class="pr-lbl">Nota / IP / Canal</div><input class="pr-inp" value="${(it.note||"").replace(/"/g,'&quot;')}" oninput="updProp('note',this.value)" placeholder="192.168.1.x, ch3…"/></div>
+      <div class="pr"><div class="pr-lbl">Rotación</div>
+        <div class="pr-rot-row">
+          <div class="pr-rot-btn" onclick="rotSel(-90)">↺ -90°</div>
+          <div class="pr-rot-btn" onclick="rotSel(90)">↻ +90°</div>
+          <div class="pr-rot-btn" onclick="rotSel(180)">↔ 180°</div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+        <div class="pr"><div class="pr-lbl">X</div><input class="pr-inp" type="number" value="${Math.round(it.x)}" oninput="updProp('x',+this.value)"/></div>
+        <div class="pr"><div class="pr-lbl">Y</div><input class="pr-inp" type="number" value="${Math.round(it.y)}" oninput="updProp('y',+this.value)"/></div>
+      </div>
+      <div class="pr"><div class="pr-lbl">ID</div><div class="pr-val" style="font-family:var(--mono);font-size:10px;color:var(--txt3)">${it.id}</div></div>`;
+    requestAnimationFrame(()=>{
+      const cv=document.getElementById("pr-ico-cv");if(!cv)return;
+      const c=cv.getContext("2d");c.fillStyle=eq?.bg||"#1e293b";c.fillRect(0,0,38,38);
+      drawIcon(c,it.type,19,19,38,eq?.c||"#94a3b8");
+    });
+    return;
+  }
+  if(wl){
+    document.getElementById("pr-body").innerHTML=`
+      <div class="pr"><div class="pr-lbl">Tipo</div><div class="pr-val">${WALL_LABELS[wl.sub]||"Pared"}</div></div>
+      <div class="pr"><div class="pr-lbl">Etiqueta</div><input class="pr-inp" value="${wl.label||""}" oninput="updWallProp('label',this.value)"/></div>
+      <div class="pr"><div class="pr-lbl">Grosor</div><input class="pr-inp" type="number" value="${wl.thick||14}" min="4" max="60" oninput="updWallProp('thick',+this.value)"/></div>`;
+    return;
+  }
+  if(tz){
+    document.getElementById("pr-body").innerHTML=`
+      <div class="pr"><div class="pr-lbl">Texto</div><input class="pr-inp" value="${(tz.val||"").replace(/"/g,'&quot;')}" oninput="updTextProp('val',this.value)"/></div>
+      <div class="pr"><div class="pr-lbl">Tamaño</div><input class="pr-inp" type="number" value="${tz.size||13}" oninput="updTextProp('size',+this.value)"/></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+        <div class="pr"><div class="pr-lbl">X</div><input class="pr-inp" type="number" value="${Math.round(tz.x)}" oninput="updTextProp('x',+this.value)"/></div>
+        <div class="pr"><div class="pr-lbl">Y</div><input class="pr-inp" type="number" value="${Math.round(tz.y)}" oninput="updTextProp('y',+this.value)"/></div>
+      </div>`;
+    return;
+  }
+  if(zo){
+    document.getElementById("pr-body").innerHTML=`
+      <div class="pr"><div class="pr-lbl">Nombre</div><input class="pr-inp" value="${(zo.name||"").replace(/"/g,'&quot;')}" oninput="updZoneProp('name',this.value)"/></div>
+      <div class="pr"><div class="pr-lbl">Piso</div><input class="pr-inp" value="${zo.piso||""}" oninput="updZoneProp('piso',this.value)"/></div>`;
+    return;
+  }
+  pp.classList.remove("show");
+}
+
+function hideProps(){document.getElementById("props").classList.remove("show");document.getElementById("pr-body").innerHTML="";}
+function updProp(k,v){const it=items.find(i=>i.id===selId);if(it){it[k]=v;render();}}
+function updWallProp(k,v){const w=walls.find(w=>w.id===selId);if(w){w[k]=v;render();}}
+function updTextProp(k,v){const t=texts.find(t=>t.id===selId);if(t){t[k]=v;render();}}
+function updZoneProp(k,v){const z=zones.find(z=>z.id===selId);if(z){z[k]=v;render();}}
+function rotSel(deg){const it=items.find(i=>i.id===selId);if(it){saveUndo();it.rot=((it.rot||0)+deg+360)%360;render();}}
+
+// ═══ DELETE / DUP ═══
+function delSel(){
+  if(!selId)return;saveUndo();
+  items=items.filter(i=>i.id!==selId);
+  zones=zones.filter(z=>z.id!==selId);
+  wires=wires.filter(w=>w.a!==selId&&w.b!==selId&&w.id!==selId);
+  walls=walls.filter(w=>w.id!==selId);
+  texts=texts.filter(t=>t.id!==selId);
+  selId=null;updCnt();render();hideProps();showToast("Eliminado","ok");
+}
+function dupSel(){
+  if(!selId)return;saveUndo();
+  const it=items.find(i=>i.id===selId);
+  if(it){idxC++;items.push({...it,id:"i"+idxC,x:it.x+40,y:it.y+40});updCnt();render();showToast("Duplicado","ok");return;}
+  const wl=walls.find(w=>w.id===selId);
+  if(wl){idxC++;walls.push({...wl,id:"wl"+idxC,x1:wl.x1+20,y1:wl.y1+20,x2:wl.x2+20,y2:wl.y2+20});updCnt();render();showToast("Duplicado","ok");return;}
+  const tz=texts.find(t=>t.id===selId);
+  if(tz){idxC++;texts.push({...tz,id:"tx"+idxC,x:tz.x+20,y:tz.y+20});render();showToast("Duplicado","ok");}
+}
+function clearAll(){
+  if(!confirm("¿Limpiar todo el plano?"))return;
+  items=[];zones=[];wires=[];walls=[];texts=[];selId=null;idxC=0;undoStack=[];redoStack=[];
+  updCnt();render();hideProps();showToast("Plano limpiado","ok");
+}
+function updCnt(){
+  document.getElementById("st-cnt").textContent=items.length+" equipo"+(items.length!==1?"s":"");
+  document.getElementById("st-wcnt").textContent=wires.length+" cable"+(wires.length!==1?"s":"");
+  document.getElementById("st-zcnt").textContent=zones.length+" zona"+(zones.length!==1?"s":"");
+  document.getElementById("st-walls").textContent=walls.length+" pared"+(walls.length!==1?"es":"");
+  buildLeg();
+}
+
+// ═══ ZONE MODAL ═══
+function confirmZone(){
+  const name=document.getElementById("zm-name").value||"Zona";
+  const type=document.getElementById("zm-type").value;
+  const piso=document.getElementById("zm-piso").value;
+  saveUndo();idxC++;
+  zones.push({id:"z"+idxC,name,type,piso,...zonePend});
+  document.getElementById("zm-wrap").classList.remove("show");
+  document.getElementById("zm-name").value="";
+  document.getElementById("zm-piso").value="";
+  render();updCnt();showToast("Zona '"+name+"' creada ✓","ok");
+}
+function cancelZone(){
+  document.getElementById("zm-wrap").classList.remove("show");
+  zonePend=null;zoneActive=false;zoneStart=null;clearOv();
+}
+
+// ═══ TEXT MODAL ═══
+function confirmText(){
+  const val=document.getElementById("txt-val").value;
+  if(!val||!textPend)return;
+  saveUndo();idxC++;
+  texts.push({id:"tx"+idxC,x:textPend.x,y:textPend.y,val,
+    size:+document.getElementById("txt-size").value,
+    color:document.getElementById("txt-color").value});
+  document.getElementById("txt-wrap").classList.remove("show");
+  textPend=null;render();showToast("Texto insertado","ok");
+}
+function cancelText(){document.getElementById("txt-wrap").classList.remove("show");textPend=null;}
+
+// ═══ VIEW TOGGLES ═══
+function toggle3D(){is3D=!is3D;document.getElementById("btn3d").classList.toggle("on",is3D);render();}
+function toggleGrid(){showGrid=!showGrid;document.getElementById("btngrid").classList.toggle("on",showGrid);render();}
+function toggleSnap(){snapEnabled=!snapEnabled;document.getElementById("btnsnap").classList.toggle("on",snapEnabled);showToast("Snap "+(snapEnabled?"ON":"OFF"),"info");}
+function toggleHelp(){document.getElementById("help-ov").classList.toggle("show");}
+function toggleMinimap(){
+  showMinimap=!showMinimap;
+  document.getElementById("btnmm").classList.toggle("on",showMinimap);
+  document.getElementById("minimap").classList.toggle("show",showMinimap);
+  if(showMinimap)renderMinimap();
+}
+function toggleLeg(){document.getElementById("legend").classList.toggle("show");buildLeg();}
+
+function renderMinimap(){
+  const mm=document.getElementById("mm-canvas"),mc=mm.getContext("2d");
+  mc.clearRect(0,0,mm.width,mm.height);mc.fillStyle="#0d1520";mc.fillRect(0,0,mm.width,mm.height);
+  const allX=[...items.map(i=>i.x),...zones.map(z=>z.x),...zones.map(z=>z.x+z.w),...walls.map(w=>w.x1),...walls.map(w=>w.x2)];
+  const allY=[...items.map(i=>i.y),...zones.map(z=>z.y),...zones.map(z=>z.y+z.h),...walls.map(w=>w.y1),...walls.map(w=>w.y2)];
+  if(!allX.length)return;
+  const minX=Math.min(...allX)-20,minY=Math.min(...allY)-20;
+  const maxX=Math.max(...allX)+20,maxY=Math.max(...allY)+20;
+  const ms=Math.min((mm.width-4)/(maxX-minX||1),(mm.height-4)/(maxY-minY||1));
+  zones.forEach(z=>{const zc=ZC[z.type]||ZC.comun;mc.fillStyle=zc.fill;mc.strokeStyle=zc.stroke;mc.lineWidth=.5;const px=(z.x-minX)*ms+2,py=(z.y-minY)*ms+2;mc.fillRect(px,py,z.w*ms,z.h*ms);mc.strokeRect(px,py,z.w*ms,z.h*ms);});
+  walls.forEach(w=>{mc.strokeStyle=WALL_COLORS[w.sub]||"#94a3b8";mc.lineWidth=1;mc.beginPath();mc.moveTo((w.x1-minX)*ms+2,(w.y1-minY)*ms+2);mc.lineTo((w.x2-minX)*ms+2,(w.y2-minY)*ms+2);mc.stroke();});
+  items.forEach(it=>{const eq=findEq(it.type);if(!eq)return;const px=(it.x-minX)*ms+2,py=(it.y-minY)*ms+2;mc.fillStyle=eq.c;mc.beginPath();mc.arc(px,py,3,0,Math.PI*2);mc.fill();});
+  // Viewport rect
+  mc.strokeStyle="rgba(14,165,233,.6)";mc.lineWidth=1.2;mc.setLineDash([2,2]);
+  mc.strokeRect((-ox/scale-minX)*ms+2,(-oy/scale-minY)*ms+2,mc2.width/scale*ms,mc2.height/scale*ms);
+  mc.setLineDash([]);
+}
+
+function buildLeg(){
+  const cnt={};items.forEach(it=>{cnt[it.type]=(cnt[it.type]||0)+1;});
+  let h="";
+  Object.entries(cnt).sort((a,b)=>b[1]-a[1]).forEach(([t,c])=>{const eq=findEq(t);if(!eq)return;h+=`<div class="lg-r"><div class="lg-l"><div class="lg-d" style="background:${eq.c}"></div><span>${eq.n}</span></div><span class="lg-cnt">×${c}</span></div>`;});
+  document.getElementById("leg-body").innerHTML=h||"<span style='color:var(--txt3);font-size:9px'>Sin equipos</span>";
+  let hw="";const wt=[...new Set(wires.map(w=>w.type))];wt.forEach(t=>{hw+=`<div class="lg-r"><div class="lg-l"><div class="lg-d" style="background:${WIRE_COLORS[t]}"></div><span>${WIRE_LABELS[t]||t}</span></div><span class="lg-cnt">×${wires.filter(w=>w.type===t).length}</span></div>`;});
+  document.getElementById("leg-wires").innerHTML=hw||"<span style='color:var(--txt3);font-size:9px'>Sin cables</span>";
+  let ha="";const ws=[...new Set(walls.map(w=>w.sub))];ws.forEach(s=>{ha+=`<div class="lg-r"><div class="lg-l"><div class="lg-d" style="background:${WALL_COLORS[s]}"></div><span>${WALL_LABELS[s]||s}</span></div><span class="lg-cnt">×${walls.filter(w=>w.sub===s).length}</span></div>`;});
+  document.getElementById("leg-arch").innerHTML=ha||"<span style='color:var(--txt3);font-size:9px'>Sin elementos</span>";
+}
+
+// ═══ ZOOM / FIT ═══
+function chScale(d){
+  scale=Math.max(.1,Math.min(6,scale+d));
+  document.getElementById("zoom-lbl").textContent=Math.round(scale*100)+"%";render();
+}
+function zoomFit(){
+  const allX=[...items.map(i=>i.x),...zones.map(z=>z.x),...zones.map(z=>z.x+z.w),...walls.map(w=>w.x1),...walls.map(w=>w.x2)];
+  const allY=[...items.map(i=>i.y),...zones.map(z=>z.y),...zones.map(z=>z.y+z.h),...walls.map(w=>w.y1),...walls.map(w=>w.y2)];
+  if(!allX.length){scale=1;ox=40;oy=40;}
+  else{
+    const minX=Math.min(...allX)-50,minY=Math.min(...allY)-50;
+    const maxX=Math.max(...allX)+50,maxY=Math.max(...allY)+50;
+    const W=mc2.width,H=mc2.height;
+    scale=Math.min(W/(maxX-minX),H/(maxY-minY),.95);
+    ox=-minX*scale+(W-(maxX-minX)*scale)/2;oy=-minY*scale+(H-(maxY-minY)*scale)/2;
+  }
+  document.getElementById("zoom-lbl").textContent=Math.round(scale*100)+"%";render();
+}
+
+// ═══ UNDO / REDO ═══
+function saveUndo(){
+  undoStack.push({items:JSON.stringify(items),zones:JSON.stringify(zones),wires:JSON.stringify(wires),walls:JSON.stringify(walls),texts:JSON.stringify(texts)});
+  if(undoStack.length>80)undoStack.shift();
+  redoStack=[];
+}
+function undoAct(){
+  if(!undoStack.length)return;
+  redoStack.push({items:JSON.stringify(items),zones:JSON.stringify(zones),wires:JSON.stringify(wires),walls:JSON.stringify(walls),texts:JSON.stringify(texts)});
+  const s=undoStack.pop();
+  items=JSON.parse(s.items);zones=JSON.parse(s.zones);wires=JSON.parse(s.wires);
+  walls=JSON.parse(s.walls||"[]");texts=JSON.parse(s.texts||"[]");
+  updCnt();render();showToast("Deshacer","ok");
+}
+function redoAct(){
+  if(!redoStack.length)return;
+  undoStack.push({items:JSON.stringify(items),zones:JSON.stringify(zones),wires:JSON.stringify(wires),walls:JSON.stringify(walls),texts:JSON.stringify(texts)});
+  const s=redoStack.pop();
+  items=JSON.parse(s.items);zones=JSON.parse(s.zones);wires=JSON.parse(s.wires);
+  walls=JSON.parse(s.walls||"[]");texts=JSON.parse(s.texts||"[]");
+  updCnt();render();showToast("Rehacer","ok");
+}
+
+// ═══ TOOLTIP / TOAST ═══
+function showTip(x,y,html){const t=document.getElementById("tip");t.style.display="block";t.style.left=x+"px";t.style.top=y+"px";t.innerHTML=html;}
+function hideTip(){document.getElementById("tip").style.display="none";}
+let toastTimer;
+function showToast(msg,type="ok"){
+  const t=document.getElementById("toast");t.textContent=msg;t.className="show "+(type||"");
+  clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.className="",2500);
+}
+
+// ═══ PROJECT ═══
+function openProjModal(){
+  ["name","client","nit","addr","rev","date","notes"].forEach(k=>document.getElementById("pj-"+k).value=projData[k]||"");
+  document.getElementById("proj-modal").classList.add("show");
+}
+function closeProjModal(){document.getElementById("proj-modal").classList.remove("show");}
+function saveProjData(){
+  ["name","client","nit","addr","rev","date","notes"].forEach(k=>projData[k]=document.getElementById("pj-"+k).value);
+  document.getElementById("st-proj").textContent=projData.name||"Sin proyecto";
+  closeProjModal();showToast("Proyecto guardado","ok");
+}
+
+// ═══ SAVE / LOAD ═══
+function savePlan(){
+  const data=JSON.stringify({v:4,projData,items,zones,wires,walls,texts,idxC},null,2);
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(new Blob([data],{type:"application/json"}));
+  a.download=`EM-PRO-${(projData.name||"plano").replace(/[^a-z0-9]/gi,"-").toLowerCase()}-${new Date().toISOString().slice(0,10)}.json`;
+  a.click();URL.revokeObjectURL(a.href);
+  showToast("Plano guardado (JSON)","ok");
+  // Also save to localStorage as backup
+  try{localStorage.setItem("em-seguridad-autosave",data);}catch(e){}
+}
+function loadPlan(){
+  const inp=document.createElement("input");inp.type="file";inp.accept=".json";
+  inp.onchange=e=>{
+    const f=e.target.files[0];if(!f)return;
+    const r=new FileReader();
+    r.onload=ev=>{
+      try{
+        const d=JSON.parse(ev.target.result);
+        items=d.items||[];zones=d.zones||[];wires=d.wires||[];
+        walls=d.walls||[];texts=d.texts||[];
+        if(d.idxC)idxC=d.idxC;
+        if(d.projData){projData=d.projData;document.getElementById("st-proj").textContent=projData.name||"Sin proyecto";}
+        undoStack=[];redoStack=[];updCnt();render();
+        showToast(`Cargado: ${items.length} equipos, ${walls.length} paredes, ${zones.length} zonas`,"ok");
+      }catch(err){showToast("Error al cargar: "+err.message,"err");}
+    };r.readAsText(f);
+  };inp.click();
+}
+
+// Auto-restore from localStorage
+function tryAutoRestore(){
+  try{
+    const saved=localStorage.getItem("em-seguridad-autosave");
+    if(saved){
+      const d=JSON.parse(saved);
+      if((d.items&&d.items.length>0)||(d.walls&&d.walls.length>0)||(d.zones&&d.zones.length>0)){
+        if(confirm(`Se encontró un plano guardado automáticamente (${d.items?.length||0} equipos). ¿Restaurar?`)){
+          items=d.items||[];zones=d.zones||[];wires=d.wires||[];
+          walls=d.walls||[];texts=d.texts||[];
+          if(d.idxC)idxC=d.idxC;
+          if(d.projData){projData=d.projData;document.getElementById("st-proj").textContent=projData.name||"Sin proyecto";}
+          updCnt();render();showToast("Plano restaurado","ok");
+        }
+      }
+    }
+  }catch(e){}
+}
+
+// ═══ PDF EXPORT ═══
+async function exportPDF(){
+  if(typeof window.jspdf==="undefined"){showToast("Cargando PDF…","info");await new Promise(r=>setTimeout(r,1000));}
+  try{
+    const W=mc2.width,H=mc2.height;
+    const exp=document.createElement("canvas");exp.width=W;exp.height=H;
+    const ectx=exp.getContext("2d");
+    // White bg
+    ectx.fillStyle="#ffffff";ectx.fillRect(0,0,W,H);
+    // Header
+    const hH=48;ectx.fillStyle="#0d1520";ectx.fillRect(0,0,W,hH);
+    ectx.font="bold 14px 'IBM Plex Sans',sans-serif";ectx.fillStyle="#0ea5e9";ectx.textBaseline="top";
+    ectx.fillText("EM SEGURIDAD ELECTRÓNICA"+(projData.name?" — "+projData.name.toUpperCase():""),14,9);
+    ectx.font="10px 'IBM Plex Mono',monospace";ectx.fillStyle="#7a9bb8";
+    ectx.fillText([projData.client,projData.addr,projData.rev].filter(Boolean).join("  ·  ")||"Plano de Seguridad",14,27);
+    ectx.textAlign="right";ectx.fillText("Ing. Edisson Macias",W-14,9);
+    ectx.fillText(new Date(projData.date||Date.now()).toLocaleDateString("es-CO",{year:"numeric",month:"long",day:"numeric"}),W-14,27);
+    ectx.textAlign="left";ectx.textBaseline="alphabetic";
+    // Content
+    const tmpCtx=document.createElement("canvas");tmpCtx.width=W;tmpCtx.height=H;
+    const tc=tmpCtx.getContext("2d");
+    drawGrid(tc,W,H);
+    zones.forEach(z=>drawZone(tc,z));
+    walls.forEach(w=>drawWall(tc,w));
+    wires.forEach(w=>drawWire(tc,w));
+    items.forEach(it=>{const eq=findEq(it.type);if(eq)drawItem(tc,it,eq);});
+    texts.forEach(t=>drawText(tc,t));
+    ectx.drawImage(tmpCtx,0,hH,W,H-hH-28);
+    // Footer
+    const fH=28;ectx.fillStyle="#0d1520";ectx.fillRect(0,H-fH,W,fH);
+    ectx.font="9px 'IBM Plex Mono',monospace";ectx.fillStyle="#3d5a78";ectx.textBaseline="middle";
+    ectx.fillText(`Equipos: ${items.length}  ·  Cables: ${wires.length}  ·  Zonas: ${zones.length}  ·  Paredes: ${walls.length}`,14,H-fH/2);
+    ectx.textAlign="right";ectx.fillText("EM Seguridad Electrónica PRO — Ing. Edisson Macias",W-14,H-fH/2);
+    ectx.textAlign="left";ectx.textBaseline="alphabetic";
+
+    const{jsPDF}=window.jspdf;
+    const lnd=W>H;const pdf=new jsPDF({orientation:lnd?"landscape":"portrait",unit:"mm",format:"a4"});
+    const pw=lnd?297:210,ph=lnd?210:297,m=5,aw=pw-2*m,ah=ph-2*m;
+    const ratio=Math.min(aw/W,ah/H);
+    pdf.addImage(exp.toDataURL("image/png",1),"PNG",m,m,W*ratio,H*ratio);
+    pdf.save(`EM-PRO-${(projData.name||"plano").replace(/[^a-z0-9]/gi,"-").toLowerCase()}-${new Date().toISOString().slice(0,10)}.pdf`);
+    showToast("PDF exportado ✓","ok");
+  }catch(err){showToast("Error PDF: "+err.message,"err");}
+}
+
+// ═══ KEYBOARD SHORTCUTS ═══
+document.addEventListener("keydown",e=>{
+  if(e.target.matches("input,textarea,select"))return;
+  if(e.key==="Delete"||e.key==="Backspace"){if(selId)delSel();}
+  if(e.key==="Escape"){
+    setTool("select");activeEq=null;wireFrom=null;
+    wallDrawing=false;wallStart=null;zoneActive=false;zoneStart=null;
+    clearOv();buildSidebar(document.getElementById("srch").value);
+  }
+  if(!e.ctrlKey&&!e.metaKey){
+    if(e.key==="s")setTool("select");
+    if(e.key==="z")setTool("zone");
+    if(e.key==="w")setTool("wire");
+    if(e.key==="p")setWallSub("wall");
+    if(e.key==="d")setWallSub("door");
+    if(e.key==="v")setWallSub("win");
+    if(e.key==="c")setWallSub("conduit");
+    if(e.key==="t")setTool("text");
+    if(e.key==="f")zoomFit();
+    if(e.key==="g")toggleGrid();
+    if(e.key==="r"&&selId)rotSel(90);
+  }
+  if(e.ctrlKey||e.metaKey){
+    if(e.key==="z"){e.preventDefault();undoAct();}
+    if(e.key==="y"||e.key==="Y"){e.preventDefault();redoAct();}
+    if(e.key==="s"){e.preventDefault();savePlan();}
+    if(e.key==="d"){e.preventDefault();dupSel();}
+  }
+});
+
+// Middle mouse pan
+oc2.addEventListener("mousedown",e=>{if(e.button===1){e.preventDefault();startPan(e);}});
+
+// ═══ PWA INSTALL ═══
+let deferredPrompt=null;
+window.addEventListener("beforeinstallprompt",e=>{
+  e.preventDefault();deferredPrompt=e;
+  document.getElementById("install-banner").classList.add("show");
+});
+document.getElementById("install-btn").addEventListener("click",async()=>{
+  if(!deferredPrompt)return;
+  deferredPrompt.prompt();
+  const{outcome}=await deferredPrompt.userChoice;
+  deferredPrompt=null;
+  document.getElementById("install-banner").classList.remove("show");
+  if(outcome==="accepted")showToast("App instalada ✓","ok");
+});
+window.addEventListener("appinstalled",()=>{
+  document.getElementById("install-banner").classList.remove("show");
+  showToast("EM Seguridad PRO instalada en tu tablet","ok");
+});
+
+// ═══ SERVICE WORKER ═══
+if("serviceWorker" in navigator){
+  window.addEventListener("load",()=>{
+    navigator.serviceWorker.register("./sw.js")
+      .then(r=>console.log("SW registered",r.scope))
+      .catch(e=>console.log("SW error",e));
+  });
+}
+
+// ═══ AUTOSAVE every 2 min ═══
+setInterval(()=>{
+  if(items.length>0||walls.length>0||zones.length>0){
+    try{localStorage.setItem("em-seguridad-autosave",JSON.stringify({v:4,projData,items,zones,wires,walls,texts,idxC}));}catch(e){}
+  }
+},120000);
+
+// ═══ INIT ═══
+document.getElementById("pj-date").value=new Date().toISOString().slice(0,10);
+document.getElementById("btngrid").classList.add("on");
+document.getElementById("btnsnap").classList.add("on");
+updCnt();
+setTimeout(tryAutoRestore,500);
+setTimeout(()=>showToast("EM Seguridad PRO — Ing. Edisson Macias ✓","ok"),700);
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
+</body>
+</html>
