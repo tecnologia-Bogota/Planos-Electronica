@@ -353,6 +353,7 @@ canvas{position:absolute;top:0;left:0;pointer-events:none;}
     <button class="tb-btn arch" id="btn-door" onclick="setWallSub('door')" title="Puerta (D)">⌐ Puerta</button>
     <button class="tb-btn arch" id="btn-window" onclick="setWallSub('win')" title="Ventana (V)">⊟ Ventana</button>
     <button class="tb-btn arch" id="btn-conduit" onclick="setWallSub('conduit')" title="Tubería (C)">⋯ Tubería</button>
+    <button class="tb-btn arch" id="btn-raceway" onclick="setWallSub('raceway')" title="Canaleta (N)">▭ Canaleta</button>
     <button class="tb-btn" id="btn-text" onclick="setTool('text')" title="Texto (T)">T Texto</button>
     <select id="wall-thick-sel">
       <option value="8">Muro delgado</option>
@@ -439,6 +440,7 @@ canvas{position:absolute;top:0;left:0;pointer-events:none;}
       <button class="wb-btn" id="wb-door" onclick="setWallSub('door')">Puerta</button>
       <button class="wb-btn" id="wb-win" onclick="setWallSub('win')">Ventana</button>
       <button class="wb-btn" id="wb-conduit" onclick="setWallSub('conduit')">Tubería</button>
+      <button class="wb-btn" id="wb-raceway" onclick="setWallSub('raceway')">Canaleta</button>
       <span class="wb-label" style="margin-left:6px;color:var(--txt3)">ESC = salir</span>
     </div>
     <canvas id="gc"></canvas>
@@ -749,6 +751,15 @@ function drawIcon(ctx, type, cx, cy, sz, col) {
       for(let i=-1;i<=1;i++) L(-.6,i*.2,.6,i*.2);ctx.setLineDash([]);break;
     case 'sirena_ext':
       C(0,0,.66,false);break;
+    case 'cerca_electrica':
+      L(-.78,.62,-.78,-.62);L(.78,.62,.78,-.62);
+      [-.32,.06,.44].forEach(yy=>L(-.78,yy,.78,yy));
+      ctx.beginPath();ctx.moveTo(cx+.08*s,cy-.58*s);ctx.lineTo(cx-.14*s,cy-.02*s);ctx.lineTo(cx+.06*s,cy-.02*s);ctx.lineTo(cx-.1*s,cy+.58*s);ctx.stroke();
+      break;
+    case 'energizador_cerca':
+      R(-.6,-.72,1.2,1.44,false);
+      ctx.beginPath();ctx.moveTo(cx+.14*s,cy-.5*s);ctx.lineTo(cx-.16*s,cy+.02*s);ctx.lineTo(cx+.06*s,cy+.02*s);ctx.lineTo(cx-.14*s,cy+.5*s);ctx.closePath();ctx.fill();
+      break;
     // Intercom
     case 'central_intercom': case 'telefono_ip': case 'intercom_video':
       R(-.52,-.66,1.04,1.32,false);
@@ -852,6 +863,8 @@ const EQUIPS=[
     {id:"sirena_int",n:"Sirena interior",s:"110dB piezo",c:"#ef4444",bg:"#450a0a"},
     {id:"sirena_ext",n:"Sirena exterior",s:"Con flash 120dB",c:"#ef4444",bg:"#450a0a"},
     {id:"repetidor",n:"Repetidor RF",s:"Para sensores inalám.",c:"#f59e0b",bg:"#451a03"},
+    {id:"cerca_electrica",n:"Cerca eléctrica",s:"Perimetral disuasiva",c:"#f97316",bg:"#431407"},
+    {id:"energizador_cerca",n:"Energizador cerca eléc.",s:"Panel controlador",c:"#f97316",bg:"#431407"},
   ]},
   {cat:"Intercomunicación",items:[
     {id:"central_intercom",n:"Central intercomunic.",s:"Master / esclavo",c:"#3b82f6",bg:"#1e3a5f"},
@@ -878,7 +891,8 @@ const ARCH_CATS=[
     {id:"arch_wall",n:"Pared",s:"Doble línea estructural",c:"#94a3b8",action:"wall"},
     {id:"arch_door",n:"Puerta",s:"Arco de apertura",c:"#f59e0b",action:"door"},
     {id:"arch_win",n:"Ventana",s:"Triple línea con ticks",c:"#60a5fa",action:"win"},
-    {id:"arch_conduit",n:"Tubería / Conducto",s:"EMT / PVC / Canaleta",c:"#22c55e",action:"conduit"},
+    {id:"arch_conduit",n:"Tubería / Conducto",s:"EMT / PVC embutido",c:"#22c55e",action:"conduit"},
+    {id:"arch_raceway",n:"Canaleta",s:"PVC / metálica superficial",c:"#eab308",action:"raceway"},
   ]},
   {cat:"Anotaciones",items:[
     {id:"arch_text",n:"Texto libre",s:"Nota / acotación / título",c:"#7a9bb8",action:"text"},
@@ -900,8 +914,8 @@ const ZC={
 const WIRE_COLORS={utp:"#3b82f6",coaxial:"#a3a3a3",fibra:"#f59e0b",rs485:"#22c55e",v220:"#ef4444",poe:"#a855f7",hdmi:"#06b6d4"};
 const WIRE_LABELS={utp:"UTP Cat6",coaxial:"Coaxial",fibra:"Fibra OP",v220:"220V",rs485:"RS-485",poe:"PoE",hdmi:"HDMI"};
 const WIRE_DASH={utp:[],coaxial:[6,3],fibra:[],v220:[2,4],rs485:[8,3],poe:[],hdmi:[3,3]};
-const WALL_COLORS={wall:"#94a3b8",door:"#f59e0b",win:"#60a5fa",conduit:"#22c55e"};
-const WALL_LABELS={wall:"Pared",door:"Puerta",win:"Ventana",conduit:"Tubería"};
+const WALL_COLORS={wall:"#94a3b8",door:"#f59e0b",win:"#60a5fa",conduit:"#22c55e",raceway:"#eab308"};
+const WALL_LABELS={wall:"Pared",door:"Puerta",win:"Ventana",conduit:"Tubería",raceway:"Canaleta"};
 
 // ═══ STATE ═══
 let scale=1, ox=40, oy=40;
@@ -973,7 +987,7 @@ function buildSidebar(filter=""){
       h+=`<div class="cat-hdr">${cat.cat}</div>`;
       cat.items.forEach(e=>{
         total++;
-        const emoji={wall:"▬",door:"🚪",win:"🪟",conduit:"⋯",text:"T"}[e.action]||"⬛";
+        const emoji={wall:"▬",door:"🚪",win:"🪟",conduit:"⋯",raceway:"▭",text:"T"}[e.action]||"⬛";
         h+=`<div class="eq-card" onclick="pickArch('${e.action}')" title="${e.n}">
           <div class="eq-ico" style="background:#1f2937;font-size:18px;color:${e.c};">${emoji}</div>
           <div><div class="eq-name">${e.n}</div><div class="eq-sub">${e.s}</div></div>
@@ -1008,7 +1022,7 @@ function setTool(t){
   tool=t;
   // Reset all buttons
   ["select","zone","wire","text"].forEach(tt=>{const b=document.getElementById("btn-"+tt);if(b)b.classList.toggle("on",t===tt);});
-  ["wall","door","window","conduit"].forEach(s=>{const b=document.getElementById("btn-"+s);if(b)b.classList.remove("on");});
+  ["wall","door","window","conduit","raceway"].forEach(s=>{const b=document.getElementById("btn-"+s);if(b)b.classList.remove("on");});
   if(t==="wall"||t==="arch"){
     const b=document.getElementById("btn-"+wallSub);if(b)b.classList.add("on");
   }
@@ -1027,7 +1041,7 @@ function setTool(t){
     zone:"ZONA: Toca y ARRASTRA para dibujar",
     wire:"Cable: toca origen → destino",
     text:"Texto: toca en el plano"};
-  const WL={wall:"Pared: toca inicio luego fin",door:"Puerta: toca inicio luego fin",win:"Ventana: toca inicio luego fin",conduit:"Tubería: toca inicio luego fin"};
+  const WL={wall:"Pared: toca inicio luego fin",door:"Puerta: toca inicio luego fin",win:"Ventana: toca inicio luego fin",conduit:"Tubería: toca inicio luego fin",raceway:"Canaleta: toca inicio luego fin"};
   document.getElementById("st-tool").textContent=(t==="wall"?(WL[wallSub]||"Dibujar"):L[t])||t;
 
   // Hints
@@ -1041,7 +1055,7 @@ function setTool(t){
 function setWallSub(sub){
   wallSub=sub;
   setTool("wall");
-  ["wall","door","win","conduit"].forEach(s=>{
+  ["wall","door","win","conduit","raceway"].forEach(s=>{
     const a=document.getElementById("wb-"+s);if(a)a.classList.toggle("on",s===sub);
     const b=document.getElementById("btn-"+s);if(b)b.classList.toggle("on",s===sub);
   });
@@ -1156,6 +1170,23 @@ function drawWall(ctx,w){
       ctx.fillStyle=col+"99";ctx.textAlign="center";ctx.textBaseline="bottom";
       ctx.fillText(w.label||"Conducto",mx3,my3-5);ctx.textAlign="left";ctx.textBaseline="alphabetic";
     }
+  } else if(w.sub==="raceway"){
+    const col=sel?"#fde047":"#eab308",rw=Math.max(3,4*scale);
+    ctx.strokeStyle=col;ctx.lineWidth=sel?2.4:1.8;
+    [-1,1].forEach(f=>{
+      ctx.beginPath();ctx.moveTo(a.x+nx*rw*f,a.y+ny*rw*f);ctx.lineTo(b.x+nx*rw*f,b.y+ny*rw*f);ctx.stroke();
+    });
+    const ticks=Math.max(2,Math.floor(len/(22*scale)));
+    for(let i=0;i<=ticks;i++){
+      const t=i/ticks,tx=a.x+(b.x-a.x)*t,ty=a.y+(b.y-a.y)*t;
+      ctx.beginPath();ctx.moveTo(tx+nx*rw,ty+ny*rw);ctx.lineTo(tx-nx*rw,ty-ny*rw);ctx.stroke();
+    }
+    if(scale>.5){
+      const mx3=(a.x+b.x)/2,my3=(a.y+b.y)/2;
+      ctx.font=`${Math.max(8,8*scale)}px 'IBM Plex Mono',monospace`;
+      ctx.fillStyle=col+"cc";ctx.textAlign="center";ctx.textBaseline="bottom";
+      ctx.fillText(w.label||"Canaleta",mx3,my3-rw-4);ctx.textAlign="left";ctx.textBaseline="alphabetic";
+    }
   }
   if(sel){[a,b].forEach(pt=>{ctx.fillStyle="#0ea5e9";ctx.beginPath();ctx.arc(pt.x,pt.y,6,0,Math.PI*2);ctx.fill();});}
 }
@@ -1178,7 +1209,7 @@ function drawText(ctx,t){
 
 // ═══ DRAW ITEM ═══
 function drawItem(ctx,it,eq){
-  const SZ=36*scale,p=w2s(it.x,it.y),sel=selId===it.id;
+  const SZ=36*scale*(it.sz||1),p=w2s(it.x,it.y),sel=selId===it.id;
   const rot=(it.rot||0)*Math.PI/180;
   if(sel){
     ctx.strokeStyle="rgba(14,165,233,.8)";ctx.lineWidth=2.5;
@@ -1278,8 +1309,7 @@ function itmCenter(id){const it=items.find(i=>i.id===id);return it?{x:it.x,y:it.
 // ═══ HIT TEST ═══
 // Larger hit radius for stylus/finger
 function hitItem(wx,wy){
-  const SZ=20;
-  for(let i=items.length-1;i>=0;i--){const it=items[i];if(Math.abs(it.x-wx)<SZ&&Math.abs(it.y-wy)<SZ)return it;}
+  for(let i=items.length-1;i>=0;i--){const it=items[i];const SZ=20*(it.sz||1);if(Math.abs(it.x-wx)<SZ&&Math.abs(it.y-wy)<SZ)return it;}
   return null;
 }
 function hitZone(wx,wy){
@@ -1337,7 +1367,7 @@ function onDown(e){
     saveUndo();
     const sn={x:snap(wp.x),y:snap(wp.y)};idxC++;
     items.push({id:"i"+idxC,type:activeEq.id,x:sn.x,y:sn.y,
-      label:activeEq.n,note:"",rot:0,
+      label:activeEq.n,note:"",rot:0,sz:1,
       idx:items.filter(i=>i.type===activeEq.id).length+1});
     updCnt();render();
     showToast(activeEq.n+" #"+(items.filter(i=>i.type===activeEq.id).length)+" colocado","ok");
@@ -1621,6 +1651,14 @@ function showProps(){
       </div>
       <div class="pr"><div class="pr-lbl">Etiqueta</div><input class="pr-inp" value="${(it.label||"").replace(/"/g,'&quot;')}" oninput="updProp('label',this.value)"/></div>
       <div class="pr"><div class="pr-lbl">Nota / IP / Canal</div><input class="pr-inp" value="${(it.note||"").replace(/"/g,'&quot;')}" oninput="updProp('note',this.value)" placeholder="192.168.1.x, ch3…"/></div>
+      <div class="pr"><div class="pr-lbl">Tamaño <span id="pr-sz-val">${Math.round((it.sz||1)*100)}%</span></div>
+        <input class="pr-inp" id="pr-sz-range" type="range" min="0.4" max="2" step="0.05" value="${it.sz||1}" oninput="updSizeProp(this.value)" style="padding:2px 4px;min-height:28px;"/>
+        <div class="pr-rot-row" style="margin-top:6px;">
+          <div class="pr-rot-btn" onclick="setSizeProp(0.6)">S</div>
+          <div class="pr-rot-btn" onclick="setSizeProp(1)">M</div>
+          <div class="pr-rot-btn" onclick="setSizeProp(1.6)">L</div>
+        </div>
+      </div>
       <div class="pr"><div class="pr-lbl">Rotación</div>
         <div class="pr-rot-row">
           <div class="pr-rot-btn" onclick="rotSel(-90)">↺ -90°</div>
@@ -1668,6 +1706,19 @@ function showProps(){
 
 function hideProps(){document.getElementById("props").classList.remove("show");document.getElementById("pr-body").innerHTML="";}
 function updProp(k,v){const it=items.find(i=>i.id===selId);if(it){it[k]=v;render();}}
+function updSizeProp(v){
+  const it=items.find(i=>i.id===selId);if(!it)return;
+  it.sz=+v;
+  const lbl=document.getElementById("pr-sz-val");if(lbl)lbl.textContent=Math.round(it.sz*100)+"%";
+  render();
+}
+function setSizeProp(v){
+  const it=items.find(i=>i.id===selId);if(!it)return;
+  saveUndo();it.sz=v;
+  const rg=document.getElementById("pr-sz-range");if(rg)rg.value=v;
+  const lbl=document.getElementById("pr-sz-val");if(lbl)lbl.textContent=Math.round(v*100)+"%";
+  render();
+}
 function updWallProp(k,v){const w=walls.find(w=>w.id===selId);if(w){w[k]=v;render();}}
 function updTextProp(k,v){const t=texts.find(t=>t.id===selId);if(t){t[k]=v;render();}}
 function updZoneProp(k,v){const z=zones.find(z=>z.id===selId);if(z){z[k]=v;render();}}
@@ -1951,6 +2002,7 @@ document.addEventListener("keydown",e=>{
     if(e.key==="d")setWallSub("door");
     if(e.key==="v")setWallSub("win");
     if(e.key==="c")setWallSub("conduit");
+    if(e.key==="n")setWallSub("raceway");
     if(e.key==="t")setTool("text");
     if(e.key==="f")zoomFit();
     if(e.key==="g")toggleGrid();
