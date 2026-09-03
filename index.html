@@ -342,6 +342,8 @@ canvas{position:absolute;top:0;left:0;pointer-events:none;}
       <option value="v220">Línea 220V</option>
       <option value="poe">PoE</option>
       <option value="hdmi">HDMI/Video</option>
+      <option value="infrarrojo">Haz IR (barrera↔barrera)</option>
+      <option value="cerca">Alambre cerca eléctrica</option>
     </select>
   </div>
 
@@ -911,9 +913,9 @@ const ZC={
   servidores:{fill:"rgba(250,204,21,.09)",stroke:"#eab308",label:"Sala servidores"},
 };
 
-const WIRE_COLORS={utp:"#3b82f6",coaxial:"#a3a3a3",fibra:"#f59e0b",rs485:"#22c55e",v220:"#ef4444",poe:"#a855f7",hdmi:"#06b6d4"};
-const WIRE_LABELS={utp:"UTP Cat6",coaxial:"Coaxial",fibra:"Fibra OP",v220:"220V",rs485:"RS-485",poe:"PoE",hdmi:"HDMI"};
-const WIRE_DASH={utp:[],coaxial:[6,3],fibra:[],v220:[2,4],rs485:[8,3],poe:[],hdmi:[3,3]};
+const WIRE_COLORS={utp:"#3b82f6",coaxial:"#a3a3a3",fibra:"#f59e0b",rs485:"#22c55e",v220:"#ef4444",poe:"#a855f7",hdmi:"#06b6d4",infrarrojo:"#f59e0b",cerca:"#f97316"};
+const WIRE_LABELS={utp:"UTP Cat6",coaxial:"Coaxial",fibra:"Fibra OP",v220:"220V",rs485:"RS-485",poe:"PoE",hdmi:"HDMI",infrarrojo:"Haz IR",cerca:"Cerca eléc."};
+const WIRE_DASH={utp:[],coaxial:[6,3],fibra:[],v220:[2,4],rs485:[8,3],poe:[],hdmi:[3,3],infrarrojo:[5,4],cerca:[]};
 const WALL_COLORS={wall:"#94a3b8",door:"#f59e0b",win:"#60a5fa",conduit:"#22c55e",raceway:"#eab308"};
 const WALL_LABELS={wall:"Pared",door:"Puerta",win:"Ventana",conduit:"Tubería",raceway:"Canaleta"};
 
@@ -934,6 +936,9 @@ let pinching=false, pinchDist0=0, pinchScale0=1, pinchOx0=0, pinchOy0=0;
 let idxC=0;
 let textPend=null;
 let currentTab="equip";
+let cssW=0, cssH=0, DPR=1;
+const EXPORT_SCALE=3; // supersampling factor for crisp PDF/print export
+let rotatingItem=null, rotStartAng=0, rotStartRot=0;
 let projData={name:"",client:"",nit:"",addr:"",rev:"Rev. A",date:new Date().toISOString().slice(0,10),notes:""};
 
 const ca=document.getElementById("ca");
@@ -947,7 +952,13 @@ const ox2=oc2.getContext("2d");
 // ═══ RESIZE ═══
 function resize(){
   const r=ca.getBoundingClientRect();
-  [gc,mc2,oc2].forEach(c=>{c.width=r.width;c.height=r.height;});
+  DPR=Math.max(1,Math.min(3,window.devicePixelRatio||1));
+  cssW=r.width;cssH=r.height;
+  [gc,mc2,oc2].forEach(c=>{
+    c.width=Math.round(cssW*DPR);c.height=Math.round(cssH*DPR);
+    c.style.width=cssW+"px";c.style.height=cssH+"px";
+  });
+  [gx,mx,ox2].forEach(cx=>{cx.setTransform(DPR,0,0,DPR,0,0);cx.imageSmoothingEnabled=true;cx.imageSmoothingQuality="high";});
   render();
 }
 window.addEventListener("resize",resize);
@@ -1171,21 +1182,34 @@ function drawWall(ctx,w){
       ctx.fillText(w.label||"Conducto",mx3,my3-5);ctx.textAlign="left";ctx.textBaseline="alphabetic";
     }
   } else if(w.sub==="raceway"){
-    const col=sel?"#fde047":"#eab308",rw=Math.max(3,4*scale);
-    ctx.strokeStyle=col;ctx.lineWidth=sel?2.4:1.8;
-    [-1,1].forEach(f=>{
-      ctx.beginPath();ctx.moveTo(a.x+nx*rw*f,a.y+ny*rw*f);ctx.lineTo(b.x+nx*rw*f,b.y+ny*rw*f);ctx.stroke();
+    // Professional surface-mount raceway: solid body + highlight + centre
+    // cover seam + screws at regular intervals, instead of a bare double line.
+    const bodyCol=sel?"#fde047":"#eab308",rw=Math.max(4,5.2*scale),ux2=dx/len,uy2=dy/len;
+    ctx.beginPath();
+    ctx.moveTo(a.x+nx*rw,a.y+ny*rw);ctx.lineTo(b.x+nx*rw,b.y+ny*rw);
+    ctx.lineTo(b.x-nx*rw,b.y-ny*rw);ctx.lineTo(a.x-nx*rw,a.y-ny*rw);ctx.closePath();
+    ctx.fillStyle=sel?"rgba(253,224,71,.28)":"rgba(234,179,8,.16)";ctx.fill();
+    ctx.strokeStyle=bodyCol;ctx.lineWidth=sel?2:1.4;ctx.stroke();
+    // End caps
+    [[a,-1],[b,1]].forEach(([pt])=>{
+      ctx.beginPath();ctx.moveTo(pt.x+nx*rw,pt.y+ny*rw);ctx.lineTo(pt.x-nx*rw,pt.y-ny*rw);ctx.stroke();
     });
-    const ticks=Math.max(2,Math.floor(len/(22*scale)));
-    for(let i=0;i<=ticks;i++){
-      const t=i/ticks,tx=a.x+(b.x-a.x)*t,ty=a.y+(b.y-a.y)*t;
-      ctx.beginPath();ctx.moveTo(tx+nx*rw,ty+ny*rw);ctx.lineTo(tx-nx*rw,ty-ny*rw);ctx.stroke();
+    // Centre cover seam (the removable lid line)
+    ctx.strokeStyle=bodyCol+"99";ctx.lineWidth=1;ctx.setLineDash([1,0]);
+    ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();
+    // Screws along the seam
+    const screws=Math.max(2,Math.floor(len/(30*scale)));
+    ctx.fillStyle=bodyCol;
+    for(let i=0;i<=screws;i++){
+      const t=i/screws,sx=a.x+dx*t,sy=a.y+dy*t;
+      ctx.beginPath();ctx.arc(sx,sy,Math.max(1.1,rw*.28),0,Math.PI*2);ctx.fill();
     }
     if(scale>.5){
       const mx3=(a.x+b.x)/2,my3=(a.y+b.y)/2;
-      ctx.font=`${Math.max(8,8*scale)}px 'IBM Plex Mono',monospace`;
-      ctx.fillStyle=col+"cc";ctx.textAlign="center";ctx.textBaseline="bottom";
-      ctx.fillText(w.label||"Canaleta",mx3,my3-rw-4);ctx.textAlign="left";ctx.textBaseline="alphabetic";
+      const wLen=(Math.sqrt((w.x2-w.x1)**2+(w.y2-w.y1)**2)/100).toFixed(2);
+      ctx.font=`600 ${Math.max(8,8*scale)}px 'IBM Plex Mono',monospace`;
+      ctx.fillStyle=bodyCol;ctx.textAlign="center";ctx.textBaseline="bottom";
+      ctx.fillText(`${w.label||"Canaleta"} — ${wLen}m`,mx3,my3-rw-5);ctx.textAlign="left";ctx.textBaseline="alphabetic";
     }
   }
   if(sel){[a,b].forEach(pt=>{ctx.fillStyle="#0ea5e9";ctx.beginPath();ctx.arc(pt.x,pt.y,6,0,Math.PI*2);ctx.fill();});}
@@ -1205,6 +1229,19 @@ function drawText(ctx,t){
     ctx.strokeRect(p.x-2,p.y-2,m.width+4,fs+4);ctx.setLineDash([]);
   }
   ctx.textBaseline="alphabetic";
+}
+
+// Equipment types that get a facing indicator drawn in drawItem, based on it.rot.
+// Cone = field-of-view wedge (cameras with a lens). Arrow = simple facing arrow (PIR/sensors).
+const DIR_CONE_TYPES=new Set(["cam_domo_ip","cam_domo_ana","cam_domo_ahd","cam_domo_4k","cam_bala_ip","cam_bala_ana","cam_ptz_ip","cam_ptz_ana","cam_lpr","cam_termica","cam_box"]);
+const DIR_ARROW_TYPES=new Set(["pir_simple","pir_doble","pir_exterior","pir_cortina","sensor_mag","detector_temp","barrera_infr"]);
+
+// World-space direction vector for an item's current rotation (0°=up/north, clockwise).
+function itemDirVec(it){const rad=(it.rot||0)*Math.PI/180;return{x:Math.sin(rad),y:-Math.cos(rad)};}
+// World-space position of the draggable rotation handle for an item.
+function rotHandleWorldPos(it){
+  const half=18*(it.sz||1),R=half+42,d=itemDirVec(it);
+  return{x:it.x+d.x*R,y:it.y+d.y*R};
 }
 
 // ═══ DRAW ITEM ═══
@@ -1244,7 +1281,36 @@ function drawItem(ctx,it,eq){
   else ctx.rect(-SZ/2,-SZ/2,SZ,SZ);
   ctx.stroke();
   drawIcon(ctx,it.type,0,0,SZ,eq.c);
+
+  // ── Facing indicator: shows exactly where the camera/sensor points ──
+  if(DIR_CONE_TYPES.has(it.type)){
+    const cl=SZ*1.15,spread=SZ*0.66,e0=SZ/2+1;
+    ctx.beginPath();
+    ctx.moveTo(0,-e0);ctx.lineTo(-spread,-e0-cl);ctx.lineTo(spread,-e0-cl);ctx.closePath();
+    ctx.fillStyle=eq.c+"26";ctx.fill();
+    ctx.strokeStyle=eq.c+"cc";ctx.lineWidth=1.1;
+    ctx.beginPath();ctx.moveTo(0,-e0);ctx.lineTo(-spread,-e0-cl);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(0,-e0);ctx.lineTo(spread,-e0-cl);ctx.stroke();
+  } else if(DIR_ARROW_TYPES.has(it.type)){
+    const al=SZ*0.95,e0=SZ/2+1;
+    ctx.strokeStyle=eq.c;ctx.fillStyle=eq.c;ctx.lineWidth=Math.max(1.3,SZ*0.045);
+    ctx.beginPath();ctx.moveTo(0,-e0);ctx.lineTo(0,-e0-al);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(0,-e0-al-SZ*.22);ctx.lineTo(-SZ*.14,-e0-al+SZ*.04);ctx.lineTo(SZ*.14,-e0-al+SZ*.04);ctx.closePath();ctx.fill();
+  }
   ctx.restore();
+
+  // ── Rotation handle (editing UI only — never drawn on the export canvas) ──
+  if(sel&&ctx===mx){
+    const hp=rotHandleWorldPos(it),hs=w2s(hp.x,hp.y);
+    ctx.strokeStyle="rgba(14,165,233,.55)";ctx.lineWidth=1.3;ctx.setLineDash([3,3]);
+    ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(hs.x,hs.y);ctx.stroke();ctx.setLineDash([]);
+    ctx.fillStyle="#0ea5e9";ctx.beginPath();ctx.arc(hs.x,hs.y,9,0,Math.PI*2);ctx.fill();
+    ctx.strokeStyle="#fff";ctx.lineWidth=1.6;ctx.beginPath();ctx.arc(hs.x,hs.y,9,0,Math.PI*2);ctx.stroke();
+    ctx.fillStyle="#fff";ctx.font="bold 11px 'IBM Plex Sans',sans-serif";
+    ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText("↻",hs.x,hs.y+.5);
+    ctx.fillStyle="#0ea5e9";ctx.font="600 10px 'IBM Plex Mono',monospace";ctx.textBaseline="alphabetic";
+    ctx.fillText(Math.round(it.rot||0)+"°",hs.x,hs.y-14);
+  }
 
   // Label
   const lfs=Math.max(7,9*scale);
@@ -1268,6 +1334,71 @@ function drawWire(ctx,w){
   const a=itmCenter(w.a),b=itmCenter(w.b);if(!a||!b)return;
   const pa=w2s(a.x,a.y),pb=w2s(b.x,b.y);
   const col=WIRE_COLORS[w.type]||"#3b82f6",sel=selId===w.id;
+  const dxAll=pb.x-pa.x,dyAll=pb.y-pa.y,lenAll=Math.sqrt(dxAll*dxAll+dyAll*dyAll)||1;
+  const ux=dxAll/lenAll,uy=dyAll/lenAll,nx=-uy,ny=ux; // unit direction + unit normal
+
+  // ── INFRARED BEAM: barrera_infr ↔ barrera_infr — a straight line-of-sight
+  // showing exactly which barrier faces which, with the beam's direction. ──
+  if(w.type==="infrarrojo"){
+    ctx.strokeStyle=sel?col:col+"cc";
+    [-3.2,0,3.2].forEach((off,i)=>{
+      ctx.lineWidth=i===1?(sel?2.2:1.6):1;
+      ctx.setLineDash(i===1?[]:[3,4]);
+      ctx.beginPath();
+      ctx.moveTo(pa.x+nx*off,pa.y+ny*off);ctx.lineTo(pb.x+nx*off,pb.y+ny*off);
+      ctx.stroke();
+    });
+    ctx.setLineDash([]);
+    // Emitter/receiver ticks at both ends
+    [pa,pb].forEach(pt=>{ctx.strokeStyle=col;ctx.lineWidth=2;ctx.beginPath();
+      ctx.moveTo(pt.x+nx*7,pt.y+ny*7);ctx.lineTo(pt.x-nx*7,pt.y-ny*7);ctx.stroke();});
+    // Direction arrow at the midpoint (emitter → receptor)
+    const mid={x:(pa.x+pb.x)/2,y:(pa.y+pb.y)/2},al=9*scale;
+    ctx.fillStyle=col;ctx.beginPath();
+    ctx.moveTo(mid.x+ux*al,mid.y+uy*al);
+    ctx.lineTo(mid.x-ux*al+nx*al*.55,mid.y-uy*al+ny*al*.55);
+    ctx.lineTo(mid.x-ux*al-nx*al*.55,mid.y-uy*al-ny*al*.55);
+    ctx.closePath();ctx.fill();
+    if(scale>.45){
+      ctx.font=`700 ${Math.max(8,9*scale)}px 'IBM Plex Mono',monospace`;
+      ctx.fillStyle=col;ctx.textAlign="center";ctx.textBaseline="bottom";
+      const distM=(Math.sqrt((b.x-a.x)**2+(b.y-a.y)**2)/100).toFixed(1);
+      ctx.fillText(`◈ HAZ IR — ${distM}m`,mid.x,mid.y-9);
+      ctx.textAlign="left";ctx.textBaseline="alphabetic";
+    }
+    if(sel)[pa,pb].forEach(pt=>{ctx.fillStyle="#0ea5e9";ctx.beginPath();ctx.arc(pt.x,pt.y,5,0,Math.PI*2);ctx.fill();});
+    return;
+  }
+
+  // ── ELECTRIC FENCE WIRE: multiple taut strands + insulator ticks + a small
+  // lightning-bolt live-wire marker instead of a generic cable line. ──
+  if(w.type==="cerca"){
+    const strands=[-6,-2,2,6];
+    strands.forEach(off=>{
+      ctx.strokeStyle=sel?col:col+"cc";ctx.lineWidth=sel?1.8:1.3;ctx.setLineDash([]);
+      ctx.beginPath();ctx.moveTo(pa.x+nx*off,pa.y+ny*off);ctx.lineTo(pb.x+nx*off,pb.y+ny*off);ctx.stroke();
+    });
+    const ticks=Math.max(2,Math.floor(lenAll/(26*scale)));
+    for(let i=0;i<=ticks;i++){
+      const t=i/ticks,tx=pa.x+dxAll*t,ty=pa.y+dyAll*t;
+      ctx.strokeStyle=col+"aa";ctx.lineWidth=1;
+      ctx.beginPath();ctx.moveTo(tx+nx*8,ty+ny*8);ctx.lineTo(tx-nx*8,ty-ny*8);ctx.stroke();
+    }
+    const mid={x:(pa.x+pb.x)/2,y:(pa.y+pb.y)/2},bs=10*scale;
+    ctx.fillStyle=col;ctx.beginPath();
+    ctx.moveTo(mid.x+bs*.3,mid.y-bs);ctx.lineTo(mid.x-bs*.35,mid.y+bs*.1);ctx.lineTo(mid.x+bs*.05,mid.y+bs*.1);
+    ctx.lineTo(mid.x-bs*.3,mid.y+bs);ctx.lineTo(mid.x+bs*.35,mid.y-bs*.1);ctx.lineTo(mid.x-bs*.05,mid.y-bs*.1);
+    ctx.closePath();ctx.fill();
+    if(scale>.5){
+      ctx.font=`600 ${Math.max(7,8*scale)}px 'IBM Plex Mono',monospace`;
+      ctx.fillStyle=col+"dd";ctx.textAlign="center";ctx.textBaseline="top";
+      ctx.fillText("CERCA ELÉCTRICA",mid.x,mid.y+bs+3);ctx.textAlign="left";ctx.textBaseline="alphabetic";
+    }
+    if(sel)[pa,pb].forEach(pt=>{ctx.fillStyle="#0ea5e9";ctx.beginPath();ctx.arc(pt.x,pt.y,5,0,Math.PI*2);ctx.fill();});
+    return;
+  }
+
+  // ── Standard cabling (UTP, coaxial, fibra, PoE, etc.) ──
   ctx.strokeStyle=sel?col:col+"bb";ctx.lineWidth=sel?2.6:1.7;
   ctx.setLineDash(WIRE_DASH[w.type]||[]);
   ctx.beginPath();ctx.moveTo(pa.x,pa.y);
@@ -1281,9 +1412,8 @@ function drawWire(ctx,w){
     ctx.fillStyle=col+"aa";ctx.textAlign="center";
     ctx.fillText(WIRE_LABELS[w.type]||w.type,mid.x,mid.y-7);ctx.textAlign="left";
   }
-  const dx=pb.x-pa.x,dy2=pb.y-pa.y,len=Math.sqrt(dx*dx+dy2*dy2);
-  if(len>50){
-    const ux=dx/len,uy=dy2/len,al=8*scale;
+  if(lenAll>50){
+    const al=8*scale;
     ctx.fillStyle=col;ctx.beginPath();
     ctx.moveTo(mid.x+ux*al,mid.y+uy*al);ctx.lineTo(mid.x-ux*al+uy*al*.5,mid.y-uy*al-ux*al*.5);ctx.lineTo(mid.x-ux*al-uy*al*.5,mid.y-uy*al+ux*al*.5);ctx.closePath();ctx.fill();
   }
@@ -1292,7 +1422,7 @@ function drawWire(ctx,w){
 
 // ═══ RENDER ═══
 function render(){
-  const W=mc2.width,H=mc2.height;
+  const W=cssW,H=cssH;
   drawGrid(gx,W,H);
   mx.clearRect(0,0,W,H);
   zones.forEach(z=>drawZone(mx,z));
@@ -1303,7 +1433,7 @@ function render(){
   if(showMinimap)renderMinimap();
 }
 
-function clearOv(){ox2.clearRect(0,0,oc2.width,oc2.height);}
+function clearOv(){ox2.clearRect(0,0,cssW,cssH);}
 function itmCenter(id){const it=items.find(i=>i.id===id);return it?{x:it.x,y:it.y}:null;}
 
 // ═══ HIT TEST ═══
@@ -1418,6 +1548,18 @@ function onDown(e){
   }
 
   if(tool==="select"){
+    // Rotation handle takes priority when an equipment item is already selected —
+    // drag it freely to any angle (not just 90° steps) to aim a camera or sensor.
+    if(selType==="item"){
+      const cur=items.find(i=>i.id===selId);
+      if(cur){
+        const hp=rotHandleWorldPos(cur),hitR=24/scale;
+        if(Math.hypot(wp.x-hp.x,wp.y-hp.y)<hitR){
+          rotatingItem=cur;rotStartAng=Math.atan2(wp.y-cur.y,wp.x-cur.x);rotStartRot=cur.rot||0;
+          return;
+        }
+      }
+    }
     const hit=hitItem(wp.x,wp.y);
     if(hit){selId=hit.id;selType="item";dragEl=hit;dragOff={x:wp.x-hit.x,y:wp.y-hit.y};updSel();showProps();render();return;}
     const hw=hitWall(wp.x,wp.y);
@@ -1458,6 +1600,21 @@ function onMove(e){
   if(dragEl&&tool==="select"){
     const sn={x:snap(wp.x-dragOff.x),y:snap(wp.y-dragOff.y)};
     dragEl.x=sn.x;dragEl.y=sn.y;render();return;
+  }
+
+  // ── FREE ROTATION drag: any angle, with light magnetic snap near common
+  // angles (0/45/90…) for convenience — hold Alt to disable the snap entirely.
+  if(rotatingItem){
+    const ang=Math.atan2(wp.y-rotatingItem.y,wp.x-rotatingItem.x);
+    let deg=rotStartRot+(ang-rotStartAng)*180/Math.PI;
+    deg=((deg%360)+360)%360;
+    if(!e.altKey){
+      for(const s of[0,45,90,135,180,225,270,315,360]){if(Math.abs(deg-s)<4){deg=s%360;break;}}
+    }
+    rotatingItem.rot=deg;
+    const lbl=document.getElementById("pr-rot-val");if(lbl)lbl.textContent=Math.round(deg)+"°";
+    const rg=document.getElementById("pr-rot-range");if(rg)rg.value=deg;
+    render();return;
   }
 
   // ── ZONE preview on move ──
@@ -1529,6 +1686,7 @@ function onUp(e){
   if(pinching){pinching=false;return;}
 
   if(panning){panning=false;panStart=null;return;}
+  if(rotatingItem){saveUndo();rotatingItem=null;render();return;}
   if(dragEl){saveUndo();dragEl=null;return;}
 
   // ── ZONE: Complete on release ──
@@ -1659,12 +1817,14 @@ function showProps(){
           <div class="pr-rot-btn" onclick="setSizeProp(1.6)">L</div>
         </div>
       </div>
-      <div class="pr"><div class="pr-lbl">Rotación</div>
-        <div class="pr-rot-row">
+      <div class="pr"><div class="pr-lbl">Rotación libre <span id="pr-rot-val">${Math.round(it.rot||0)}°</span></div>
+        <input class="pr-inp" id="pr-rot-range" type="range" min="0" max="359" step="1" value="${Math.round(it.rot||0)}" oninput="updRotDeg(this.value)" onchange="saveUndo()" style="padding:2px 4px;min-height:28px;"/>
+        <div class="pr-rot-row" style="margin-top:6px;">
           <div class="pr-rot-btn" onclick="rotSel(-90)">↺ -90°</div>
           <div class="pr-rot-btn" onclick="rotSel(90)">↻ +90°</div>
           <div class="pr-rot-btn" onclick="rotSel(180)">↔ 180°</div>
         </div>
+        <div style="font-size:8px;color:var(--txt3);font-family:var(--mono);margin-top:5px;line-height:1.4;">Arrastra el ↻ sobre el equipo en el plano para apuntarlo a cualquier ángulo.</div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
         <div class="pr"><div class="pr-lbl">X</div><input class="pr-inp" type="number" value="${Math.round(it.x)}" oninput="updProp('x',+this.value)"/></div>
@@ -1723,6 +1883,12 @@ function updWallProp(k,v){const w=walls.find(w=>w.id===selId);if(w){w[k]=v;rende
 function updTextProp(k,v){const t=texts.find(t=>t.id===selId);if(t){t[k]=v;render();}}
 function updZoneProp(k,v){const z=zones.find(z=>z.id===selId);if(z){z[k]=v;render();}}
 function rotSel(deg){const it=items.find(i=>i.id===selId);if(it){saveUndo();it.rot=((it.rot||0)+deg+360)%360;render();}}
+function updRotDeg(v){
+  const it=items.find(i=>i.id===selId);if(!it)return;
+  const d=((+v)%360+360)%360;it.rot=d;
+  const lbl=document.getElementById("pr-rot-val");if(lbl)lbl.textContent=Math.round(d)+"°";
+  render();
+}
 
 // ═══ DELETE / DUP ═══
 function delSel(){
@@ -1813,7 +1979,7 @@ function renderMinimap(){
   items.forEach(it=>{const eq=findEq(it.type);if(!eq)return;const px=(it.x-minX)*ms+2,py=(it.y-minY)*ms+2;mc.fillStyle=eq.c;mc.beginPath();mc.arc(px,py,3,0,Math.PI*2);mc.fill();});
   // Viewport rect
   mc.strokeStyle="rgba(14,165,233,.6)";mc.lineWidth=1.2;mc.setLineDash([2,2]);
-  mc.strokeRect((-ox/scale-minX)*ms+2,(-oy/scale-minY)*ms+2,mc2.width/scale*ms,mc2.height/scale*ms);
+  mc.strokeRect((-ox/scale-minX)*ms+2,(-oy/scale-minY)*ms+2,cssW/scale*ms,cssH/scale*ms);
   mc.setLineDash([]);
 }
 
@@ -1840,7 +2006,7 @@ function zoomFit(){
   else{
     const minX=Math.min(...allX)-50,minY=Math.min(...allY)-50;
     const maxX=Math.max(...allX)+50,maxY=Math.max(...allY)+50;
-    const W=mc2.width,H=mc2.height;
+    const W=cssW,H=cssH;
     scale=Math.min(W/(maxX-minX),H/(maxY-minY),.95);
     ox=-minX*scale+(W-(maxX-minX)*scale)/2;oy=-minY*scale+(H-(maxY-minY)*scale)/2;
   }
@@ -1944,44 +2110,53 @@ function tryAutoRestore(){
 async function exportPDF(){
   if(typeof window.jspdf==="undefined"){showToast("Cargando PDF…","info");await new Promise(r=>setTimeout(r,1000));}
   try{
-    const W=mc2.width,H=mc2.height;
+    showToast("Renderizando en alta resolución…","info");
+    // Logical plan size (CSS px) — actual rendering happens supersampled by EXPORT_SCALE
+    // so text, iconography and cabling stay sharp instead of pixelated.
+    const Wc=cssW,Hc=cssH;
+    const W=Math.round(Wc*EXPORT_SCALE),H=Math.round(Hc*EXPORT_SCALE);
     const exp=document.createElement("canvas");exp.width=W;exp.height=H;
     const ectx=exp.getContext("2d");
+    ectx.imageSmoothingEnabled=true;ectx.imageSmoothingQuality="high";
+    ectx.scale(EXPORT_SCALE,EXPORT_SCALE);
     // White bg
-    ectx.fillStyle="#ffffff";ectx.fillRect(0,0,W,H);
+    ectx.fillStyle="#ffffff";ectx.fillRect(0,0,Wc,Hc);
     // Header
-    const hH=48;ectx.fillStyle="#0d1520";ectx.fillRect(0,0,W,hH);
+    const hH=48;ectx.fillStyle="#0d1520";ectx.fillRect(0,0,Wc,hH);
     ectx.font="bold 14px 'IBM Plex Sans',sans-serif";ectx.fillStyle="#0ea5e9";ectx.textBaseline="top";
     ectx.fillText("EM SEGURIDAD ELECTRÓNICA"+(projData.name?" — "+projData.name.toUpperCase():""),14,9);
     ectx.font="10px 'IBM Plex Mono',monospace";ectx.fillStyle="#7a9bb8";
     ectx.fillText([projData.client,projData.addr,projData.rev].filter(Boolean).join("  ·  ")||"Plano de Seguridad",14,27);
-    ectx.textAlign="right";ectx.fillText("Ing. Edisson Macias",W-14,9);
-    ectx.fillText(new Date(projData.date||Date.now()).toLocaleDateString("es-CO",{year:"numeric",month:"long",day:"numeric"}),W-14,27);
+    ectx.textAlign="right";ectx.fillText("Ing. Edisson Macias",Wc-14,9);
+    ectx.fillText(new Date(projData.date||Date.now()).toLocaleDateString("es-CO",{year:"numeric",month:"long",day:"numeric"}),Wc-14,27);
     ectx.textAlign="left";ectx.textBaseline="alphabetic";
-    // Content
+    // Content — rendered on its own supersampled canvas so equipment icons, cable
+    // labels and the raceway/fence detail come out crisp instead of pixelated.
     const tmpCtx=document.createElement("canvas");tmpCtx.width=W;tmpCtx.height=H;
     const tc=tmpCtx.getContext("2d");
-    drawGrid(tc,W,H);
+    tc.imageSmoothingEnabled=true;tc.imageSmoothingQuality="high";
+    tc.scale(EXPORT_SCALE,EXPORT_SCALE);
+    drawGrid(tc,Wc,Hc);
     zones.forEach(z=>drawZone(tc,z));
     walls.forEach(w=>drawWall(tc,w));
     wires.forEach(w=>drawWire(tc,w));
     items.forEach(it=>{const eq=findEq(it.type);if(eq)drawItem(tc,it,eq);});
     texts.forEach(t=>drawText(tc,t));
-    ectx.drawImage(tmpCtx,0,hH,W,H-hH-28);
+    ectx.drawImage(tmpCtx,0,hH,Wc,Hc-hH-28);
     // Footer
-    const fH=28;ectx.fillStyle="#0d1520";ectx.fillRect(0,H-fH,W,fH);
+    const fH=28;ectx.fillStyle="#0d1520";ectx.fillRect(0,Hc-fH,Wc,fH);
     ectx.font="9px 'IBM Plex Mono',monospace";ectx.fillStyle="#3d5a78";ectx.textBaseline="middle";
-    ectx.fillText(`Equipos: ${items.length}  ·  Cables: ${wires.length}  ·  Zonas: ${zones.length}  ·  Paredes: ${walls.length}`,14,H-fH/2);
-    ectx.textAlign="right";ectx.fillText("EM Seguridad Electrónica PRO — Ing. Edisson Macias",W-14,H-fH/2);
+    ectx.fillText(`Equipos: ${items.length}  ·  Cables: ${wires.length}  ·  Zonas: ${zones.length}  ·  Paredes: ${walls.length}`,14,Hc-fH/2);
+    ectx.textAlign="right";ectx.fillText("EM Seguridad Electrónica PRO — Ing. Edisson Macias",Wc-14,Hc-fH/2);
     ectx.textAlign="left";ectx.textBaseline="alphabetic";
 
     const{jsPDF}=window.jspdf;
-    const lnd=W>H;const pdf=new jsPDF({orientation:lnd?"landscape":"portrait",unit:"mm",format:"a4"});
+    const lnd=W>H;const pdf=new jsPDF({orientation:lnd?"landscape":"portrait",unit:"mm",format:"a4",compress:true});
     const pw=lnd?297:210,ph=lnd?210:297,m=5,aw=pw-2*m,ah=ph-2*m;
     const ratio=Math.min(aw/W,ah/H);
-    pdf.addImage(exp.toDataURL("image/png",1),"PNG",m,m,W*ratio,H*ratio);
+    pdf.addImage(exp.toDataURL("image/png",1),"PNG",m,m,W*ratio,H*ratio,undefined,"FAST");
     pdf.save(`EM-PRO-${(projData.name||"plano").replace(/[^a-z0-9]/gi,"-").toLowerCase()}-${new Date().toISOString().slice(0,10)}.pdf`);
-    showToast("PDF exportado ✓","ok");
+    showToast("PDF exportado en alta resolución ✓","ok");
   }catch(err){showToast("Error PDF: "+err.message,"err");}
 }
 
