@@ -472,7 +472,6 @@ canvas{position:absolute;top:0;left:0;pointer-events:none;}
     <span id="st-sel" style="color:var(--acc);font-weight:600;"></span>
     · <span id="st-proj" style="color:var(--txt3)">Sin proyecto</span>
     · <span style="color:var(--txt3)">Ing. Edisson Macias</span>
-    · <span id="cloud-status" style="color:var(--txt3);font-family:var(--mono);">☁ …</span>
   </div>
 </div>
 </div>
@@ -1432,7 +1431,6 @@ function render(){
   items.forEach(it=>{const eq=findEq(it.type);if(eq)drawItem(mx,it,eq);});
   texts.forEach(t=>drawText(mx,t));
   if(showMinimap)renderMinimap();
-  scheduleCloudSave();
 }
 
 function clearOv(){ox2.clearRect(0,0,cssW,cssH);}
@@ -2057,7 +2055,6 @@ function saveProjData(){
   ["name","client","nit","addr","rev","date","notes"].forEach(k=>projData[k]=document.getElementById("pj-"+k).value);
   document.getElementById("st-proj").textContent=projData.name||"Sin proyecto";
   closeProjModal();showToast("Proyecto guardado","ok");
-  scheduleCloudSave();
 }
 
 // ═══ SAVE / LOAD ═══
@@ -2067,8 +2064,9 @@ function savePlan(){
   a.href=URL.createObjectURL(new Blob([data],{type:"application/json"}));
   a.download=`EM-PRO-${(projData.name||"plano").replace(/[^a-z0-9]/gi,"-").toLowerCase()}-${new Date().toISOString().slice(0,10)}.json`;
   a.click();URL.revokeObjectURL(a.href);
-  showToast("Plano descargado (JSON)","ok");
-  saveToCloud(true);
+  showToast("Plano guardado (JSON)","ok");
+  // Also save to localStorage as backup
+  try{localStorage.setItem("em-seguridad-autosave",data);}catch(e){}
 }
 function loadPlan(){
   const inp=document.createElement("input");inp.type="file";inp.accept=".json";
@@ -2084,67 +2082,28 @@ function loadPlan(){
         if(d.projData){projData=d.projData;document.getElementById("st-proj").textContent=projData.name||"Sin proyecto";}
         undoStack=[];redoStack=[];updCnt();render();
         showToast(`Cargado: ${items.length} equipos, ${walls.length} paredes, ${zones.length} zonas`,"ok");
-        saveToCloud(true);
       }catch(err){showToast("Error al cargar: "+err.message,"err");}
     };r.readAsText(f);
   };inp.click();
 }
 
-// ═══ SINCRONIZACIÓN EN LA NUBE ═══
-// El plano ya NO se guarda en localStorage (queda atado a ese navegador/dispositivo).
-// En su lugar se guarda en almacenamiento compartido: cualquiera que abra este mismo
-// link ve y edita el mismo plano, desde cualquier equipo.
-const CLOUD_KEY="em-seguridad-plan";
-let cloudSaveTimer=null;
-
-function setCloudStatus(state){
-  // state: "ok" | "err" | "unavailable" | "saving"
-  const el=document.getElementById("cloud-status");
-  if(!el)return;
-  if(state==="ok"){el.textContent="☁ Sincronizado";el.style.color="var(--grn)";}
-  else if(state==="saving"){el.textContent="☁ Guardando…";el.style.color="var(--txt3)";}
-  else if(state==="unavailable"){el.textContent="⚠ Nube no disponible";el.style.color="var(--yel)";}
-  else{el.textContent="⚠ Sin conexión";el.style.color="var(--red)";}
-}
-
-function scheduleCloudSave(){
-  clearTimeout(cloudSaveTimer);
-  cloudSaveTimer=setTimeout(()=>saveToCloud(false),1500);
-}
-
-async function saveToCloud(notify){
-  if(typeof window.storage==="undefined"){setCloudStatus("unavailable");return;}
+// Auto-restore from localStorage
+function tryAutoRestore(){
   try{
-    setCloudStatus("saving");
-    const data=JSON.stringify({v:4,projData,items,zones,wires,walls,texts,idxC});
-    const result=await window.storage.set(CLOUD_KEY,data,true);
-    if(!result)throw new Error("sin respuesta del servidor");
-    setCloudStatus("ok");
-    if(notify)showToast("Sincronizado — visible para cualquiera con el link","ok");
-  }catch(e){
-    setCloudStatus("err");
-    if(notify)showToast("No se pudo sincronizar: "+e.message,"err");
-  }
-}
-
-async function loadFromCloud(){
-  if(typeof window.storage==="undefined"){setCloudStatus("unavailable");return;}
-  try{
-    const result=await window.storage.get(CLOUD_KEY,true);
-    if(result&&result.value){
-      const d=JSON.parse(result.value);
-      items=d.items||[];zones=d.zones||[];wires=d.wires||[];
-      walls=d.walls||[];texts=d.texts||[];
-      if(d.idxC)idxC=d.idxC;
-      if(d.projData){projData=d.projData;document.getElementById("st-proj").textContent=projData.name||"Sin proyecto";}
-      undoStack=[];redoStack=[];updCnt();render();
-      showToast(`Plano cargado desde la nube: ${items.length} equipos`,"ok");
+    const saved=localStorage.getItem("em-seguridad-autosave");
+    if(saved){
+      const d=JSON.parse(saved);
+      if((d.items&&d.items.length>0)||(d.walls&&d.walls.length>0)||(d.zones&&d.zones.length>0)){
+        if(confirm(`Se encontró un plano guardado automáticamente (${d.items?.length||0} equipos). ¿Restaurar?`)){
+          items=d.items||[];zones=d.zones||[];wires=d.wires||[];
+          walls=d.walls||[];texts=d.texts||[];
+          if(d.idxC)idxC=d.idxC;
+          if(d.projData){projData=d.projData;document.getElementById("st-proj").textContent=projData.name||"Sin proyecto";}
+          updCnt();render();showToast("Plano restaurado","ok");
+        }
+      }
     }
-    setCloudStatus("ok");
-  }catch(e){
-    // Todavía no hay ningún plano guardado en la nube — se empieza en blanco
-    setCloudStatus("ok");
-  }
+  }catch(e){}
 }
 
 // ═══ PDF EXPORT ═══
@@ -2263,19 +2222,19 @@ if("serviceWorker" in navigator){
   });
 }
 
-// ═══ HEARTBEAT DE RESPALDO — sincroniza cada 30s aunque no haya edición nueva ═══
+// ═══ AUTOSAVE every 2 min ═══
 setInterval(()=>{
   if(items.length>0||walls.length>0||zones.length>0){
-    saveToCloud(false);
+    try{localStorage.setItem("em-seguridad-autosave",JSON.stringify({v:4,projData,items,zones,wires,walls,texts,idxC}));}catch(e){}
   }
-},30000);
+},120000);
 
 // ═══ INIT ═══
 document.getElementById("pj-date").value=new Date().toISOString().slice(0,10);
 document.getElementById("btngrid").classList.add("on");
 document.getElementById("btnsnap").classList.add("on");
 updCnt();
-setTimeout(loadFromCloud,500);
+setTimeout(tryAutoRestore,500);
 setTimeout(()=>showToast("EM Seguridad PRO — Ing. Edisson Macias ✓","ok"),700);
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
