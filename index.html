@@ -1261,9 +1261,11 @@ function drawWall(ctx,w){
     const col=sel?"#fbbf24":"#f59e0b";
     ctx.strokeStyle=col;ctx.lineWidth=sel?2:1.6;
     ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();
-    const angle=Math.atan2(dy,dx);
+    const ori=w.doorOri||0,hingeAtB=!!(ori&1),sideFlip=!!(ori&2);
+    const hinge=hingeAtB?b:a,other=hingeAtB?a:b;
+    const angle=Math.atan2(other.y-hinge.y,other.x-hinge.x),sweepDir=sideFlip?-1:1;
     ctx.setLineDash([4,3]);
-    ctx.beginPath();ctx.arc(a.x,a.y,len,angle,angle-Math.PI/2,true);ctx.stroke();
+    ctx.beginPath();ctx.arc(hinge.x,hinge.y,len,angle,angle-Math.PI/2*sweepDir,sweepDir>0);ctx.stroke();
     ctx.setLineDash([]);
     ctx.lineWidth=2;
     ctx.beginPath();ctx.moveTo(a.x+nx*hw*.7,a.y+ny*hw*.7);ctx.lineTo(a.x-nx*hw*.7,a.y-ny*hw*.7);ctx.stroke();
@@ -1290,14 +1292,22 @@ function drawWall(ctx,w){
       ctx.beginPath();ctx.moveTo(pt.x+nx*hw*.9,pt.y+ny*hw*.9);ctx.lineTo(pt.x-nx*hw*.9,pt.y-ny*hw*.9);ctx.stroke();
     });
     // Swing arc(s)
+    const ori2=w.doorOri||0,hingeAtB2=!!(ori2&1),sideFlip2=!!(ori2&2),sweepDir2=sideFlip2?-1:1;
     const angle=Math.atan2(dy,dx);
     ctx.setLineDash([4,3]);ctx.lineWidth=1.4;
     if(w.sub==="garS"){
-      ctx.beginPath();ctx.arc(a.x,a.y,len,angle,angle-Math.PI/2,true);ctx.stroke();
+      const hinge2=hingeAtB2?b:a,other2=hingeAtB2?a:b;
+      const ang2=Math.atan2(other2.y-hinge2.y,other2.x-hinge2.x);
+      ctx.beginPath();ctx.arc(hinge2.x,hinge2.y,len,ang2,ang2-Math.PI/2*sweepDir2,sweepDir2>0);ctx.stroke();
     } else {
       const mx4=(a.x+b.x)/2,my4=(a.y+b.y)/2,hl=len/2;
-      ctx.beginPath();ctx.arc(a.x,a.y,hl,angle,angle-Math.PI/2,true);ctx.stroke();
-      ctx.beginPath();ctx.arc(b.x,b.y,hl,angle+Math.PI,angle+Math.PI/2,false);ctx.stroke();
+      if(sweepDir2>0){
+        ctx.beginPath();ctx.arc(a.x,a.y,hl,angle,angle-Math.PI/2,true);ctx.stroke();
+        ctx.beginPath();ctx.arc(b.x,b.y,hl,angle+Math.PI,angle+Math.PI/2,false);ctx.stroke();
+      } else {
+        ctx.beginPath();ctx.arc(a.x,a.y,hl,angle,angle+Math.PI/2,false);ctx.stroke();
+        ctx.beginPath();ctx.arc(b.x,b.y,hl,angle+Math.PI,angle+Math.PI*1.5,true);ctx.stroke();
+      }
     }
     ctx.setLineDash([]);
     if(scale>.5){
@@ -1397,7 +1407,7 @@ function drawText(ctx,t){
 // Equipment types that get a facing indicator drawn in drawItem, based on it.rot.
 // Cone = field-of-view wedge (cameras with a lens). Arrow = simple facing arrow (PIR/sensors).
 const DIR_CONE_TYPES=new Set(["cam_domo_ip","cam_domo_ana","cam_domo_ahd","cam_domo_4k","cam_bala_ip","cam_bala_ana","cam_ptz_ip","cam_ptz_ana","cam_lpr","cam_termica","cam_box"]);
-const DIR_ARROW_TYPES=new Set(["pir_simple","pir_doble","pir_exterior","pir_cortina","sensor_mag","detector_temp","barrera_infr"]);
+const DIR_ARROW_TYPES=new Set(["pir_simple","pir_doble","pir_exterior","pir_cortina","detector_temp","barrera_infr"]);
 
 // World-space direction vector for an item's current rotation (0°=up/north, clockwise).
 function itemDirVec(it){const rad=(it.rot||0)*Math.PI/180;return{x:Math.sin(rad),y:-Math.cos(rad)};}
@@ -2051,10 +2061,12 @@ function showProps(){
     return;
   }
   if(wl){
+    const isDoor=wl.sub==="door"||wl.sub==="garS"||wl.sub==="garD";
     document.getElementById("pr-body").innerHTML=`
       <div class="pr"><div class="pr-lbl">Tipo</div><div class="pr-val">${WALL_LABELS[wl.sub]||"Pared"}</div></div>
       <div class="pr"><div class="pr-lbl">Etiqueta</div><input class="pr-inp" value="${wl.label||""}" oninput="updWallProp('label',this.value)"/></div>
-      <div class="pr"><div class="pr-lbl">Grosor</div><input class="pr-inp" type="number" value="${wl.thick||14}" min="4" max="60" oninput="updWallProp('thick',+this.value)"/></div>`;
+      <div class="pr"><div class="pr-lbl">Grosor</div><input class="pr-inp" type="number" value="${wl.thick||14}" min="4" max="60" oninput="updWallProp('thick',+this.value)"/></div>
+      ${isDoor?`<button class="btn-dup-pr" style="margin-top:4px;" onclick="flipDoorOri()">🔄 Cambiar sentido de apertura</button>`:""}`;
     return;
   }
   if(tz){
@@ -2092,6 +2104,14 @@ function setSizeProp(v){
   render();
 }
 function updWallProp(k,v){const w=walls.find(w=>w.id===selId);if(w){w[k]=v;render();}}
+function flipDoorOri(){
+  const w=walls.find(w=>w.id===selId);if(!w)return;
+  saveUndo();
+  w.doorOri=((w.doorOri||0)+1)%4;
+  render();
+  const L=["Bisagra inicio · abre afuera","Bisagra inicio · abre adentro","Bisagra fin · abre afuera","Bisagra fin · abre adentro"];
+  showToast(L[w.doorOri]||"Sentido cambiado","ok");
+}
 function updTextProp(k,v){const t=texts.find(t=>t.id===selId);if(t){t[k]=v;render();}}
 function updZoneProp(k,v){const z=zones.find(z=>z.id===selId);if(z){z[k]=v;render();}}
 function rotSel(deg){const it=items.find(i=>i.id===selId);if(it){saveUndo();it.rot=((it.rot||0)+deg+360)%360;render();}}
