@@ -132,6 +132,14 @@ canvas{position:absolute;top:0;left:0;pointer-events:none;}
   box-shadow:0 4px 20px rgba(14,165,233,.4);
 }
 #zone-hint.show{display:block;}
+#room-hint{
+  display:none;position:absolute;top:8px;left:50%;transform:translateX(-50%);
+  background:rgba(251,146,60,.92);color:#fff;border-radius:20px;
+  padding:8px 18px;font-size:13px;font-family:var(--font);font-weight:600;
+  pointer-events:none;z-index:30;white-space:nowrap;
+  box-shadow:0 4px 20px rgba(251,146,60,.4);
+}
+#room-hint.show{display:block;}
 
 /* Wall mode floating bar */
 #wall-bar{
@@ -318,6 +326,8 @@ canvas{position:absolute;top:0;left:0;pointer-events:none;}
 .hk{display:flex;justify-content:space-between;margin-bottom:4px;align-items:center;}
 .hk-key{background:var(--bg4);border:1px solid var(--bd);border-radius:4px;padding:2px 7px;color:var(--txt);font-size:10px;}
 </style>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
 </head>
 <body>
 <div id="app">
@@ -352,10 +362,14 @@ canvas{position:absolute;top:0;left:0;pointer-events:none;}
   <!-- Architecture group -->
   <div class="tb-group">
     <button class="tb-btn arch" id="btn-wall" onclick="setWallSub('wall')" title="Pared (P)">▬ Pared</button>
+    <button class="tb-btn arch" id="btn-room" onclick="setTool('room')" title="Sala rectangular: arrastra para crear 4 paredes (H)">▭ Sala rápida</button>
     <button class="tb-btn arch" id="btn-door" onclick="setWallSub('door')" title="Puerta (D)">⌐ Puerta</button>
+    <button class="tb-btn arch" id="btn-garS" onclick="setWallSub('garS')" title="Puerta parqueadero 1 hoja (J)">⛝ Parq. 1H</button>
+    <button class="tb-btn arch" id="btn-garD" onclick="setWallSub('garD')" title="Puerta parqueadero 2 hojas (K)">⛝⛝ Parq. 2H</button>
     <button class="tb-btn arch" id="btn-window" onclick="setWallSub('win')" title="Ventana (V)">⊟ Ventana</button>
     <button class="tb-btn arch" id="btn-conduit" onclick="setWallSub('conduit')" title="Tubería (C)">⋯ Tubería</button>
     <button class="tb-btn arch" id="btn-raceway" onclick="setWallSub('raceway')" title="Canaleta (N)">▭ Canaleta</button>
+    <button class="tb-btn arch" id="btn-linea" onclick="setWallSub('linea')" title="Línea / trazo libre (L)">╱ Línea</button>
     <button class="tb-btn" id="btn-text" onclick="setTool('text')" title="Texto (T)">T Texto</button>
     <select id="wall-thick-sel">
       <option value="8">Muro delgado</option>
@@ -435,14 +449,18 @@ canvas{position:absolute;top:0;left:0;pointer-events:none;}
   <div id="ca">
     <!-- Zone drawing hint -->
     <div id="zone-hint">🖊 Arrastra para crear la zona</div>
+    <div id="room-hint">🖊 Arrastra para crear un cuarto (4 paredes)</div>
     <!-- Wall mode bar -->
     <div id="wall-bar">
       <span class="wb-label">Tipo:</span>
       <button class="wb-btn on" id="wb-wall" onclick="setWallSub('wall')">Pared</button>
       <button class="wb-btn" id="wb-door" onclick="setWallSub('door')">Puerta</button>
+      <button class="wb-btn" id="wb-garS" onclick="setWallSub('garS')">Parq. 1H</button>
+      <button class="wb-btn" id="wb-garD" onclick="setWallSub('garD')">Parq. 2H</button>
       <button class="wb-btn" id="wb-win" onclick="setWallSub('win')">Ventana</button>
       <button class="wb-btn" id="wb-conduit" onclick="setWallSub('conduit')">Tubería</button>
       <button class="wb-btn" id="wb-raceway" onclick="setWallSub('raceway')">Canaleta</button>
+      <button class="wb-btn" id="wb-linea" onclick="setWallSub('linea')">Línea</button>
       <span class="wb-label" style="margin-left:6px;color:var(--txt3)">ESC = salir</span>
     </div>
     <canvas id="gc"></canvas>
@@ -472,6 +490,7 @@ canvas{position:absolute;top:0;left:0;pointer-events:none;}
     <span id="st-sel" style="color:var(--acc);font-weight:600;"></span>
     · <span id="st-proj" style="color:var(--txt3)">Sin proyecto</span>
     · <span style="color:var(--txt3)">Ing. Edisson Macias</span>
+    · <span id="cloud-status" style="color:var(--txt3);font-family:var(--mono);">☁ …</span>
   </div>
 </div>
 </div>
@@ -495,6 +514,9 @@ canvas{position:absolute;top:0;left:0;pointer-events:none;}
       <option value="vip">Área VIP / gerencial</option>
       <option value="lobby">Lobby / recepción</option>
       <option value="servidores">Sala de servidores</option>
+      <option value="jardin">Jardín / zona verde</option>
+      <option value="vacio">Vacío / doble altura</option>
+      <option value="ascensor">Ascensor</option>
     </select>
     <label class="ml">Piso / nivel</label>
     <input class="mi" type="text" id="zm-piso" placeholder="Piso 1, Sótano 2…"/>
@@ -605,11 +627,15 @@ canvas{position:absolute;top:0;left:0;pointer-events:none;}
   <h5>Atajos de teclado</h5>
   <div class="hk"><span>Seleccionar</span><span class="hk-key">S</span></div>
   <div class="hk"><span>Zona</span><span class="hk-key">Z</span></div>
+  <div class="hk"><span>Sala rápida (4 paredes)</span><span class="hk-key">H</span></div>
   <div class="hk"><span>Cable</span><span class="hk-key">W</span></div>
   <div class="hk"><span>Pared</span><span class="hk-key">P</span></div>
   <div class="hk"><span>Puerta</span><span class="hk-key">D</span></div>
+  <div class="hk"><span>Puerta parqueadero 1H</span><span class="hk-key">J</span></div>
+  <div class="hk"><span>Puerta parqueadero 2H</span><span class="hk-key">K</span></div>
   <div class="hk"><span>Ventana</span><span class="hk-key">V</span></div>
   <div class="hk"><span>Tubería</span><span class="hk-key">C</span></div>
+  <div class="hk"><span>Línea / trazo</span><span class="hk-key">L</span></div>
   <div class="hk"><span>Texto</span><span class="hk-key">T</span></div>
   <div class="hk"><span>Ajustar vista</span><span class="hk-key">F</span></div>
   <div class="hk"><span>Grid</span><span class="hk-key">G</span></div>
@@ -741,6 +767,11 @@ function drawIcon(ctx, type, cx, cy, sz, col) {
     case 'detector_inund':
       for(let i=0;i<3;i++){ctx.beginPath();ctx.moveTo(cx-.72*s,cy+(-.32+i*.34)*s);ctx.bezierCurveTo(cx-.36*s,cy+(-.52+i*.34)*s,cx+.36*s,cy+(-.12+i*.34)*s,cx+.72*s,cy+(-.32+i*.34)*s);ctx.stroke();}
       C(0,-.52,.16,true);break;
+    case 'detector_vidrio':
+      R(-.6,-.6,1.2,1.2,false);
+      ctx.beginPath();ctx.moveTo(cx-.6*s,cy-.6*s);ctx.lineTo(cx-.1*s,cy-.05*s);ctx.lineTo(cx-.32*s,cy+.15*s);ctx.lineTo(cx+.02*s,cy+.55*s);ctx.moveTo(cx-.1*s,cy-.05*s);ctx.lineTo(cx+.3*s,cy+.05*s);ctx.moveTo(cx-.1*s,cy-.05*s);ctx.lineTo(cx+.14*s,cy-.42*s);ctx.stroke();
+      for(let i=1;i<=2;i++){ctx.beginPath();ctx.arc(cx+.62*s,cy-.62*s,i*.22*s,Math.PI*.85,Math.PI*1.55);ctx.stroke();}
+      break;
     case 'sirena_int': case 'sirena_ext':
       ctx.beginPath();ctx.moveTo(cx-.16*s,cy-.32*s);ctx.lineTo(cx-.58*s,cy-.66*s);ctx.lineTo(cx-.58*s,cy+.66*s);ctx.lineTo(cx-.16*s,cy+.32*s);ctx.closePath();ctx.stroke();
       R(-.16,-.32,.32,.64,false);for(let i=1;i<=3;i++){ctx.beginPath();ctx.arc(cx+.2*s,cy,i*.26*s,-.62,.62);ctx.stroke();}
@@ -861,6 +892,7 @@ const EQUIPS=[
     {id:"detector_gas",n:"Detector gas",s:"GLP / CO2",c:"#ef4444",bg:"#450a0a"},
     {id:"detector_inund",n:"Detector inundación",s:"Sensor de agua",c:"#ef4444",bg:"#450a0a"},
     {id:"detector_temp",n:"Detector temperatura",s:"Termovelocimétrico",c:"#ef4444",bg:"#450a0a"},
+    {id:"detector_vidrio",n:"Detector rotura de vidrio",s:"Acústico / onda de choque",c:"#ef4444",bg:"#450a0a"},
     {id:"barrera_infr",n:"Barrera infrarroja",s:"Perimetral 2/4 haces",c:"#f59e0b",bg:"#451a03"},
     {id:"sirena_int",n:"Sirena interior",s:"110dB piezo",c:"#ef4444",bg:"#450a0a"},
     {id:"sirena_ext",n:"Sirena exterior",s:"Con flash 120dB",c:"#ef4444",bg:"#450a0a"},
@@ -892,9 +924,12 @@ const ARCH_CATS=[
   {cat:"Elementos arquitectónicos",items:[
     {id:"arch_wall",n:"Pared",s:"Doble línea estructural",c:"#94a3b8",action:"wall"},
     {id:"arch_door",n:"Puerta",s:"Arco de apertura",c:"#f59e0b",action:"door"},
+    {id:"arch_garS",n:"Puerta parqueadero 1 hoja",s:"Enrollable / basculante",c:"#fb923c",action:"garS"},
+    {id:"arch_garD",n:"Puerta parqueadero 2 hojas",s:"Batiente doble",c:"#fb923c",action:"garD"},
     {id:"arch_win",n:"Ventana",s:"Triple línea con ticks",c:"#60a5fa",action:"win"},
     {id:"arch_conduit",n:"Tubería / Conducto",s:"EMT / PVC embutido",c:"#22c55e",action:"conduit"},
     {id:"arch_raceway",n:"Canaleta",s:"PVC / metálica superficial",c:"#eab308",action:"raceway"},
+    {id:"arch_linea",n:"Línea / trazo",s:"Trazo libre, cota o guía",c:"#7a9bb8",action:"linea"},
   ]},
   {cat:"Anotaciones",items:[
     {id:"arch_text",n:"Texto libre",s:"Nota / acotación / título",c:"#7a9bb8",action:"text"},
@@ -911,13 +946,16 @@ const ZC={
   vip:{fill:"rgba(124,58,237,.09)",stroke:"#7c3aed",label:"Área VIP"},
   lobby:{fill:"rgba(16,185,129,.09)",stroke:"#10b981",label:"Lobby"},
   servidores:{fill:"rgba(250,204,21,.09)",stroke:"#eab308",label:"Sala servidores"},
+  jardin:{fill:"rgba(34,197,94,.13)",stroke:"#22c55e",label:"Jardín / zona verde"},
+  vacio:{fill:"rgba(148,163,184,.05)",stroke:"#64748b",label:"Vacío / doble altura"},
+  ascensor:{fill:"rgba(168,85,247,.09)",stroke:"#a855f7",label:"Ascensor"},
 };
 
 const WIRE_COLORS={utp:"#3b82f6",coaxial:"#a3a3a3",fibra:"#f59e0b",rs485:"#22c55e",v220:"#ef4444",poe:"#a855f7",hdmi:"#06b6d4",infrarrojo:"#f59e0b",cerca:"#f97316"};
 const WIRE_LABELS={utp:"UTP Cat6",coaxial:"Coaxial",fibra:"Fibra OP",v220:"220V",rs485:"RS-485",poe:"PoE",hdmi:"HDMI",infrarrojo:"Haz IR",cerca:"Cerca eléc."};
 const WIRE_DASH={utp:[],coaxial:[6,3],fibra:[],v220:[2,4],rs485:[8,3],poe:[],hdmi:[3,3],infrarrojo:[5,4],cerca:[]};
-const WALL_COLORS={wall:"#94a3b8",door:"#f59e0b",win:"#60a5fa",conduit:"#22c55e",raceway:"#eab308"};
-const WALL_LABELS={wall:"Pared",door:"Puerta",win:"Ventana",conduit:"Tubería",raceway:"Canaleta"};
+const WALL_COLORS={wall:"#94a3b8",door:"#f59e0b",win:"#60a5fa",conduit:"#22c55e",raceway:"#eab308",garS:"#fb923c",garD:"#fb923c",linea:"#7a9bb8"};
+const WALL_LABELS={wall:"Pared",door:"Puerta",win:"Ventana",conduit:"Tubería",raceway:"Canaleta",garS:"Puerta parqueadero 1 hoja",garD:"Puerta parqueadero 2 hojas",linea:"Línea / trazo"};
 
 // ═══ STATE ═══
 let scale=1, ox=40, oy=40;
@@ -930,6 +968,7 @@ let dragEl=null, dragOff={x:0,y:0};
 let wireFrom=null;
 // ZONE FIX: track start properly for touch
 let zoneActive=false, zoneStart=null, zonePend=null;
+let roomActive=false, roomStart=null;
 let wallDrawing=false, wallStart=null;
 let panning=false, panStart=null, panOff=null;
 let pinching=false, pinchDist0=0, pinchScale0=1, pinchOx0=0, pinchOy0=0;
@@ -998,7 +1037,7 @@ function buildSidebar(filter=""){
       h+=`<div class="cat-hdr">${cat.cat}</div>`;
       cat.items.forEach(e=>{
         total++;
-        const emoji={wall:"▬",door:"🚪",win:"🪟",conduit:"⋯",raceway:"▭",text:"T"}[e.action]||"⬛";
+        const emoji={wall:"▬",door:"🚪",garS:"🚧",garD:"🚧",win:"🪟",conduit:"⋯",raceway:"▭",linea:"╱",text:"T"}[e.action]||"⬛";
         h+=`<div class="eq-card" onclick="pickArch('${e.action}')" title="${e.n}">
           <div class="eq-ico" style="background:#1f2937;font-size:18px;color:${e.c};">${emoji}</div>
           <div><div class="eq-name">${e.n}</div><div class="eq-sub">${e.s}</div></div>
@@ -1032,41 +1071,43 @@ function pickArch(action){
 function setTool(t){
   tool=t;
   // Reset all buttons
-  ["select","zone","wire","text"].forEach(tt=>{const b=document.getElementById("btn-"+tt);if(b)b.classList.toggle("on",t===tt);});
-  ["wall","door","window","conduit","raceway"].forEach(s=>{const b=document.getElementById("btn-"+s);if(b)b.classList.remove("on");});
+  ["select","zone","wire","text","room"].forEach(tt=>{const b=document.getElementById("btn-"+tt);if(b)b.classList.toggle("on",t===tt);});
+  ["wall","door","garS","garD","window","conduit","raceway","linea"].forEach(s=>{const b=document.getElementById("btn-"+s);if(b)b.classList.remove("on");});
   if(t==="wall"||t==="arch"){
     const b=document.getElementById("btn-"+wallSub);if(b)b.classList.add("on");
   }
   document.getElementById("btn-select").classList.toggle("on",t==="select"||t==="place");
 
   // Cursor class
-  ca.className=t==="place"?"placing":t==="zone"?"zoning":t==="wire"?"wiring":
+  ca.className=t==="place"?"placing":t==="zone"?"zoning":t==="room"?"zoning":t==="wire"?"wiring":
     t==="wall"?"arching":t==="text"?"texting":"";
 
   // Dot
   const dot=document.getElementById("st-dot");
-  dot.className="st-dot"+(t==="wire"||t==="zone"?" warn":(t==="wall"||t==="text")?" active":"");
+  dot.className="st-dot"+(t==="wire"||t==="zone"||t==="room"?" warn":(t==="wall"||t==="text")?" active":"");
 
   // Status text
   const L={select:"Seleccionar / Mover",place:"Colocando: "+(activeEq?.n||"—"),
     zone:"ZONA: Toca y ARRASTRA para dibujar",
+    room:"SALA RÁPIDA: arrastra para crear un cuarto con 4 paredes",
     wire:"Cable: toca origen → destino",
     text:"Texto: toca en el plano"};
-  const WL={wall:"Pared: toca inicio luego fin",door:"Puerta: toca inicio luego fin",win:"Ventana: toca inicio luego fin",conduit:"Tubería: toca inicio luego fin",raceway:"Canaleta: toca inicio luego fin"};
+  const WL={wall:"Pared: toca inicio luego fin",door:"Puerta: toca inicio luego fin",garS:"Puerta parqueadero 1 hoja: toca inicio luego fin",garD:"Puerta parqueadero 2 hojas: toca inicio luego fin",win:"Ventana: toca inicio luego fin",conduit:"Tubería: toca inicio luego fin",raceway:"Canaleta: toca inicio luego fin",linea:"Línea/trazo: toca inicio luego fin"};
   document.getElementById("st-tool").textContent=(t==="wall"?(WL[wallSub]||"Dibujar"):L[t])||t;
 
   // Hints
   document.getElementById("zone-hint").classList.toggle("show",t==="zone");
+  document.getElementById("room-hint").classList.toggle("show",t==="room");
   document.getElementById("wall-bar").classList.toggle("show",t==="wall");
 
   // Reset drawing state
-  wireFrom=null;wallDrawing=false;wallStart=null;clearOv();
+  wireFrom=null;wallDrawing=false;wallStart=null;roomActive=false;roomStart=null;clearOv();
 }
 
 function setWallSub(sub){
   wallSub=sub;
   setTool("wall");
-  ["wall","door","win","conduit","raceway"].forEach(s=>{
+  ["wall","door","garS","garD","win","conduit","raceway","linea"].forEach(s=>{
     const a=document.getElementById("wb-"+s);if(a)a.classList.toggle("on",s===sub);
     const b=document.getElementById("btn-"+s);if(b)b.classList.toggle("on",s===sub);
   });
@@ -1158,6 +1199,44 @@ function drawWall(ctx,w){
     ctx.lineWidth=2;
     ctx.beginPath();ctx.moveTo(a.x+nx*hw*.7,a.y+ny*hw*.7);ctx.lineTo(a.x-nx*hw*.7,a.y-ny*hw*.7);ctx.stroke();
     ctx.beginPath();ctx.moveTo(b.x+nx*hw*.7,b.y+ny*hw*.7);ctx.lineTo(b.x-nx*hw*.7,b.y-ny*hw*.7);ctx.stroke();
+  } else if(w.sub==="garS"||w.sub==="garD"){
+    // Vehicular / parking door — thick opening bar with roller-shutter slats,
+    // plus swing arc(s) to show 1 leaf (garS) or 2 leaves meeting at centre (garD).
+    const col=sel?"#fdba74":"#fb923c",gw=Math.max(5,7*scale);
+    ctx.beginPath();
+    ctx.moveTo(a.x+nx*gw,a.y+ny*gw);ctx.lineTo(b.x+nx*gw,b.y+ny*gw);
+    ctx.lineTo(b.x-nx*gw,b.y-ny*gw);ctx.lineTo(a.x-nx*gw,a.y-ny*gw);ctx.closePath();
+    ctx.fillStyle=sel?"rgba(253,186,116,.3)":"rgba(251,146,60,.16)";ctx.fill();
+    ctx.strokeStyle=col;ctx.lineWidth=sel?2:1.4;ctx.stroke();
+    // Slats (roller-shutter texture)
+    const slats=Math.max(3,Math.floor(len/(14*scale)));
+    ctx.strokeStyle=col+"aa";ctx.lineWidth=1;
+    for(let i=1;i<slats;i++){
+      const t=i/slats,sx=a.x+dx*t,sy=a.y+dy*t;
+      ctx.beginPath();ctx.moveTo(sx+nx*gw,sy+ny*gw);ctx.lineTo(sx-nx*gw,sy-ny*gw);ctx.stroke();
+    }
+    // End jambs
+    ctx.strokeStyle=col;ctx.lineWidth=2;
+    [[a,-1],[b,1]].forEach(([pt])=>{
+      ctx.beginPath();ctx.moveTo(pt.x+nx*hw*.9,pt.y+ny*hw*.9);ctx.lineTo(pt.x-nx*hw*.9,pt.y-ny*hw*.9);ctx.stroke();
+    });
+    // Swing arc(s)
+    const angle=Math.atan2(dy,dx);
+    ctx.setLineDash([4,3]);ctx.lineWidth=1.4;
+    if(w.sub==="garS"){
+      ctx.beginPath();ctx.arc(a.x,a.y,len,angle,angle-Math.PI/2,true);ctx.stroke();
+    } else {
+      const mx4=(a.x+b.x)/2,my4=(a.y+b.y)/2,hl=len/2;
+      ctx.beginPath();ctx.arc(a.x,a.y,hl,angle,angle-Math.PI/2,true);ctx.stroke();
+      ctx.beginPath();ctx.arc(b.x,b.y,hl,angle+Math.PI,angle+Math.PI/2,false);ctx.stroke();
+    }
+    ctx.setLineDash([]);
+    if(scale>.5){
+      const mx3=(a.x+b.x)/2,my3=(a.y+b.y)/2;
+      ctx.font=`600 ${Math.max(8,8*scale)}px 'IBM Plex Mono',monospace`;
+      ctx.fillStyle=col;ctx.textAlign="center";ctx.textBaseline="bottom";
+      ctx.fillText(w.label||WALL_LABELS[w.sub],mx3,my3-gw-5);ctx.textAlign="left";ctx.textBaseline="alphabetic";
+    }
   } else if(w.sub==="win"){
     const col=sel?"#93c5fd":"#60a5fa";
     [-.5,0,.5].forEach(f=>{
@@ -1210,6 +1289,21 @@ function drawWall(ctx,w){
       ctx.font=`600 ${Math.max(8,8*scale)}px 'IBM Plex Mono',monospace`;
       ctx.fillStyle=bodyCol;ctx.textAlign="center";ctx.textBaseline="bottom";
       ctx.fillText(`${w.label||"Canaleta"} — ${wLen}m`,mx3,my3-rw-5);ctx.textAlign="left";ctx.textBaseline="alphabetic";
+    }
+  } else if(w.sub==="linea"){
+    // Free trace / dimension guide — plain thin line, no wall meaning.
+    const col=sel?"#a9c2d8":"#7a9bb8";
+    ctx.strokeStyle=col;ctx.lineWidth=sel?2:1.3;ctx.setLineDash([9,5]);
+    ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();ctx.setLineDash([]);
+    [[a.x,a.y],[b.x,b.y]].forEach(([px,py])=>{
+      ctx.beginPath();ctx.moveTo(px+nx*4,py+ny*4);ctx.lineTo(px-nx*4,py-ny*4);ctx.stroke();
+    });
+    if(scale>.4){
+      const mx3=(a.x+b.x)/2,my3=(a.y+b.y)/2;
+      const wLen=(Math.sqrt((w.x2-w.x1)**2+(w.y2-w.y1)**2)/100).toFixed(2);
+      ctx.font=`${Math.max(7,8*scale)}px 'IBM Plex Mono',monospace`;
+      ctx.fillStyle=col;ctx.textAlign="center";ctx.textBaseline="bottom";
+      ctx.fillText(w.label?w.label+" — "+wLen+"m":wLen+"m",mx3,my3-6);ctx.textAlign="left";ctx.textBaseline="alphabetic";
     }
   }
   if(sel){[a,b].forEach(pt=>{ctx.fillStyle="#0ea5e9";ctx.beginPath();ctx.arc(pt.x,pt.y,6,0,Math.PI*2);ctx.fill();});}
@@ -1431,6 +1525,7 @@ function render(){
   items.forEach(it=>{const eq=findEq(it.type);if(eq)drawItem(mx,it,eq);});
   texts.forEach(t=>drawText(mx,t));
   if(showMinimap)renderMinimap();
+  scheduleCloudSave();
 }
 
 function clearOv(){ox2.clearRect(0,0,cssW,cssH);}
@@ -1508,6 +1603,13 @@ function onDown(e){
   if(tool==="zone"){
     zoneActive=true;
     zoneStart={x:snap(wp.x),y:snap(wp.y)};
+    return;
+  }
+
+  // ── ROOM: START on touchdown ──
+  if(tool==="room"){
+    roomActive=true;
+    roomStart={x:snap(wp.x),y:snap(wp.y)};
     return;
   }
 
@@ -1635,6 +1737,23 @@ function onMove(e){
     return;
   }
 
+  // ── ROOM preview on move (4 walls outline) ──
+  if(roomActive&&roomStart){
+    clearOv();
+    const x=Math.min(wp.x,roomStart.x),y=Math.min(wp.y,roomStart.y);
+    const ws=Math.abs(wp.x-roomStart.x)*scale,hs=Math.abs(wp.y-roomStart.y)*scale;
+    const ps=w2s(x,y);
+    const thk=+document.getElementById("wall-thick-sel").value||14;
+    ox2.strokeStyle="#fb923c";ox2.lineWidth=Math.max(4,thk*scale);
+    ox2.strokeRect(ps.x,ps.y,ws,hs);
+    const wm=Math.abs(wp.x-roomStart.x)/100,hm=Math.abs(wp.y-roomStart.y)/100;
+    ox2.fillStyle="#fb923c";ox2.font="bold 12px 'IBM Plex Mono',monospace";
+    ox2.textAlign="center";ox2.textBaseline="top";
+    ox2.fillText(`${wm.toFixed(1)}m × ${hm.toFixed(1)}m`,ps.x+ws/2,ps.y+4);
+    ox2.textAlign="left";ox2.textBaseline="alphabetic";
+    return;
+  }
+
   if(wallDrawing&&wallStart&&tool==="wall"){
     clearOv();
     const ex=snap(wp.x),ey=snap(wp.y);
@@ -1708,6 +1827,30 @@ function onUp(e){
       showToast("Zona muy pequeña — arrastra más","err");
     }
     zoneStart=null;
+    return;
+  }
+
+  // ── ROOM: Complete on release (build 4 walls) ──
+  if(roomActive&&roomStart){
+    const sp=evPos(e);
+    const wp=s2w(sp.x,sp.y);
+    const ex=snap(wp.x),ey=snap(wp.y);
+    const x1=Math.min(roomStart.x,ex),y1=Math.min(roomStart.y,ey);
+    const x2=Math.max(roomStart.x,ex),y2=Math.max(roomStart.y,ey);
+    roomActive=false;clearOv();
+    if(x2-x1>25&&y2-y1>25){
+      saveUndo();
+      const thk=+document.getElementById("wall-thick-sel").value||14;
+      const corners=[[x1,y1,x2,y1],[x2,y1,x2,y2],[x2,y2,x1,y2],[x1,y2,x1,y1]];
+      corners.forEach(([ax,ay,bx,by])=>{
+        idxC++;
+        walls.push({id:"wl"+idxC,sub:"wall",x1:ax,y1:ay,x2:bx,y2:by,thick:thk,label:WALL_LABELS.wall});
+      });
+      updCnt();render();showToast("Cuarto creado (4 paredes)","ok");
+    } else {
+      showToast("Cuarto muy pequeño — arrastra más","err");
+    }
+    roomStart=null;
     return;
   }
 }
@@ -2055,6 +2198,7 @@ function saveProjData(){
   ["name","client","nit","addr","rev","date","notes"].forEach(k=>projData[k]=document.getElementById("pj-"+k).value);
   document.getElementById("st-proj").textContent=projData.name||"Sin proyecto";
   closeProjModal();showToast("Proyecto guardado","ok");
+  scheduleCloudSave();
 }
 
 // ═══ SAVE / LOAD ═══
@@ -2064,9 +2208,8 @@ function savePlan(){
   a.href=URL.createObjectURL(new Blob([data],{type:"application/json"}));
   a.download=`EM-PRO-${(projData.name||"plano").replace(/[^a-z0-9]/gi,"-").toLowerCase()}-${new Date().toISOString().slice(0,10)}.json`;
   a.click();URL.revokeObjectURL(a.href);
-  showToast("Plano guardado (JSON)","ok");
-  // Also save to localStorage as backup
-  try{localStorage.setItem("em-seguridad-autosave",data);}catch(e){}
+  showToast("Plano descargado (JSON)","ok");
+  saveToCloud(true);
 }
 function loadPlan(){
   const inp=document.createElement("input");inp.type="file";inp.accept=".json";
@@ -2082,28 +2225,83 @@ function loadPlan(){
         if(d.projData){projData=d.projData;document.getElementById("st-proj").textContent=projData.name||"Sin proyecto";}
         undoStack=[];redoStack=[];updCnt();render();
         showToast(`Cargado: ${items.length} equipos, ${walls.length} paredes, ${zones.length} zonas`,"ok");
+        saveToCloud(true);
       }catch(err){showToast("Error al cargar: "+err.message,"err");}
     };r.readAsText(f);
   };inp.click();
 }
 
-// Auto-restore from localStorage
-function tryAutoRestore(){
+// ═══ SINCRONIZACIÓN EN LA NUBE (Firebase Realtime Database) ═══
+// El plano ya NO se guarda en localStorage (queda atado a ese navegador/dispositivo).
+// En su lugar se guarda en Firebase: cualquiera que abra este mismo link ve y edita
+// el mismo plano, desde cualquier equipo. Rellena firebaseConfig con los datos de TU
+// proyecto de Firebase (ver instrucciones que te di aparte).
+const firebaseConfig={
+  apiKey:"PEGA_TU_API_KEY_AQUI",
+  authDomain:"TU-PROYECTO.firebaseapp.com",
+  databaseURL:"https://TU-PROYECTO-default-rtdb.firebaseio.com",
+  projectId:"TU-PROYECTO",
+  storageBucket:"TU-PROYECTO.appspot.com",
+  messagingSenderId:"000000000000",
+  appId:"1:000000000000:web:xxxxxxxxxxxxxxxxxxxxxx"
+};
+const CLOUD_KEY="em-seguridad-plan";
+let cloudSaveTimer=null,fbDb=null,firebaseReady=false;
+
+try{
+  if(firebaseConfig.apiKey&&!firebaseConfig.apiKey.startsWith("PEGA_")){
+    firebase.initializeApp(firebaseConfig);
+    fbDb=firebase.database();
+    firebaseReady=true;
+  }
+}catch(e){firebaseReady=false;}
+
+function setCloudStatus(state){
+  // state: "ok" | "err" | "unavailable" | "saving"
+  const el=document.getElementById("cloud-status");
+  if(!el)return;
+  if(state==="ok"){el.textContent="☁ Sincronizado";el.style.color="var(--grn)";}
+  else if(state==="saving"){el.textContent="☁ Guardando…";el.style.color="var(--txt3)";}
+  else if(state==="unavailable"){el.textContent="⚠ Configura Firebase";el.style.color="var(--yel)";}
+  else{el.textContent="⚠ Sin conexión";el.style.color="var(--red)";}
+}
+
+function scheduleCloudSave(){
+  clearTimeout(cloudSaveTimer);
+  cloudSaveTimer=setTimeout(()=>saveToCloud(false),1500);
+}
+
+async function saveToCloud(notify){
+  if(!firebaseReady){setCloudStatus("unavailable");return;}
   try{
-    const saved=localStorage.getItem("em-seguridad-autosave");
-    if(saved){
-      const d=JSON.parse(saved);
-      if((d.items&&d.items.length>0)||(d.walls&&d.walls.length>0)||(d.zones&&d.zones.length>0)){
-        if(confirm(`Se encontró un plano guardado automáticamente (${d.items?.length||0} equipos). ¿Restaurar?`)){
-          items=d.items||[];zones=d.zones||[];wires=d.wires||[];
-          walls=d.walls||[];texts=d.texts||[];
-          if(d.idxC)idxC=d.idxC;
-          if(d.projData){projData=d.projData;document.getElementById("st-proj").textContent=projData.name||"Sin proyecto";}
-          updCnt();render();showToast("Plano restaurado","ok");
-        }
-      }
+    setCloudStatus("saving");
+    const data={v:4,projData,items,zones,wires,walls,texts,idxC};
+    await fbDb.ref(CLOUD_KEY).set(data);
+    setCloudStatus("ok");
+    if(notify)showToast("Sincronizado — visible para cualquiera con el link","ok");
+  }catch(e){
+    setCloudStatus("err");
+    if(notify)showToast("No se pudo sincronizar: "+e.message,"err");
+  }
+}
+
+async function loadFromCloud(){
+  if(!firebaseReady){setCloudStatus("unavailable");return;}
+  try{
+    const snap=await fbDb.ref(CLOUD_KEY).once("value");
+    const d=snap.val();
+    if(d){
+      items=d.items||[];zones=d.zones||[];wires=d.wires||[];
+      walls=d.walls||[];texts=d.texts||[];
+      if(d.idxC)idxC=d.idxC;
+      if(d.projData){projData=d.projData;document.getElementById("st-proj").textContent=projData.name||"Sin proyecto";}
+      undoStack=[];redoStack=[];updCnt();render();
+      showToast(`Plano cargado desde la nube: ${items.length} equipos`,"ok");
     }
-  }catch(e){}
+    setCloudStatus("ok");
+  }catch(e){
+    setCloudStatus("err");
+  }
 }
 
 // ═══ PDF EXPORT ═══
@@ -2166,18 +2364,22 @@ document.addEventListener("keydown",e=>{
   if(e.key==="Delete"||e.key==="Backspace"){if(selId)delSel();}
   if(e.key==="Escape"){
     setTool("select");activeEq=null;wireFrom=null;
-    wallDrawing=false;wallStart=null;zoneActive=false;zoneStart=null;
+    wallDrawing=false;wallStart=null;zoneActive=false;zoneStart=null;roomActive=false;roomStart=null;
     clearOv();buildSidebar(document.getElementById("srch").value);
   }
   if(!e.ctrlKey&&!e.metaKey){
     if(e.key==="s")setTool("select");
     if(e.key==="z")setTool("zone");
+    if(e.key==="h")setTool("room");
     if(e.key==="w")setTool("wire");
     if(e.key==="p")setWallSub("wall");
     if(e.key==="d")setWallSub("door");
+    if(e.key==="j")setWallSub("garS");
+    if(e.key==="k")setWallSub("garD");
     if(e.key==="v")setWallSub("win");
     if(e.key==="c")setWallSub("conduit");
     if(e.key==="n")setWallSub("raceway");
+    if(e.key==="l")setWallSub("linea");
     if(e.key==="t")setTool("text");
     if(e.key==="f")zoomFit();
     if(e.key==="g")toggleGrid();
@@ -2222,19 +2424,19 @@ if("serviceWorker" in navigator){
   });
 }
 
-// ═══ AUTOSAVE every 2 min ═══
+// ═══ HEARTBEAT DE RESPALDO — sincroniza cada 30s aunque no haya edición nueva ═══
 setInterval(()=>{
   if(items.length>0||walls.length>0||zones.length>0){
-    try{localStorage.setItem("em-seguridad-autosave",JSON.stringify({v:4,projData,items,zones,wires,walls,texts,idxC}));}catch(e){}
+    saveToCloud(false);
   }
-},120000);
+},30000);
 
 // ═══ INIT ═══
 document.getElementById("pj-date").value=new Date().toISOString().slice(0,10);
 document.getElementById("btngrid").classList.add("on");
 document.getElementById("btnsnap").classList.add("on");
 updCnt();
-setTimeout(tryAutoRestore,500);
+setTimeout(loadFromCloud,500);
 setTimeout(()=>showToast("EM Seguridad PRO — Ing. Edisson Macias ✓","ok"),700);
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
