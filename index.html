@@ -1164,15 +1164,28 @@ function drawZone(ctx,z){
 // Real staircase symbol (parallel treads + direction arrow) drawn inside a zone rect.
 function drawStairsSymbol(ctx,p,ws,hs,col){
   const vertical=hs>=ws; // steps run across the SHORT side, repeated along the LONG side
-  const margin=Math.min(ws,hs)*.16;
+  const margin=Math.min(ws,hs)*.14;
   const x0=p.x+margin,y0=p.y+margin,x1=p.x+ws-margin,y1=p.y+hs-margin;
   const longLen=vertical?(y1-y0):(x1-x0);
-  const step=Math.max(9,11*scale);
-  const n=Math.max(3,Math.min(22,Math.round(longLen/step)));
+  const step=Math.max(10,12*scale);
+  const n=Math.max(3,Math.min(20,Math.round(longLen/step)));
   ctx.save();
-  ctx.strokeStyle=col+"cc";ctx.lineWidth=Math.max(1,1.3*scale);
+  // Alternating shaded treads — the visual cue that reads instantly as "stairs"
+  for(let i=0;i<n;i++){
+    const t0=i/n,t1=(i+1)/n;
+    ctx.fillStyle=(i%2===0)?col+"20":col+"08";
+    if(vertical){
+      const yy0=y0+t0*(y1-y0),yy1=y0+t1*(y1-y0);
+      ctx.fillRect(x0,yy0,x1-x0,yy1-yy0);
+    } else {
+      const xx0=x0+t0*(x1-x0),xx1=x0+t1*(x1-x0);
+      ctx.fillRect(xx0,y0,xx1-xx0,y1-y0);
+    }
+  }
+  // Tread edge lines — bolder at the bottom/top edge of the flight
   for(let i=0;i<=n;i++){
-    const t=i/n;
+    const t=i/n,bold=(i===0||i===n);
+    ctx.strokeStyle=bold?col:col+"cc";ctx.lineWidth=bold?Math.max(1.8,2.2*scale):Math.max(1,1.2*scale);
     if(vertical){
       const yy=y0+t*(y1-y0);
       ctx.beginPath();ctx.moveTo(x0,yy);ctx.lineTo(x1,yy);ctx.stroke();
@@ -1181,26 +1194,35 @@ function drawStairsSymbol(ctx,p,ws,hs,col){
       ctx.beginPath();ctx.moveTo(xx,y0);ctx.lineTo(xx,y1);ctx.stroke();
     }
   }
-  // Direction arrow (sentido de subida) along the long axis, offset to one side
-  ctx.strokeStyle=col;ctx.fillStyle=col;ctx.lineWidth=Math.max(1.4,1.8*scale);
+  // Side rails (outer edges of the flight, like real stringer lines)
+  ctx.strokeStyle=col;ctx.lineWidth=Math.max(1.6,2*scale);
+  if(vertical){
+    ctx.beginPath();ctx.moveTo(x0,y0);ctx.lineTo(x0,y1);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(x1,y0);ctx.lineTo(x1,y1);ctx.stroke();
+  } else {
+    ctx.beginPath();ctx.moveTo(x0,y0);ctx.lineTo(x1,y0);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(x0,y1);ctx.lineTo(x1,y1);ctx.stroke();
+  }
+  // Direction arrow (sentido de subida) along the long axis, through the centre
+  ctx.strokeStyle=col;ctx.fillStyle=col;ctx.lineWidth=Math.max(1.6,2*scale);
   if(vertical){
     const ax=(x0+x1)/2;
-    ctx.beginPath();ctx.moveTo(ax,y1-2);ctx.lineTo(ax,y0+8);ctx.stroke();
-    ctx.beginPath();ctx.moveTo(ax,y0);ctx.lineTo(ax-5,y0+10);ctx.lineTo(ax+5,y0+10);ctx.closePath();ctx.fill();
-    if(scale>.45){
-      ctx.save();ctx.translate(ax+12,(y0+y1)/2);ctx.rotate(-Math.PI/2);
-      ctx.font=`600 ${Math.max(7,7.5*scale)}px 'IBM Plex Mono',monospace`;
+    ctx.beginPath();ctx.moveTo(ax,y1-2);ctx.lineTo(ax,y0+10);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(ax,y0);ctx.lineTo(ax-6,y0+12);ctx.lineTo(ax+6,y0+12);ctx.closePath();ctx.fill();
+    if(scale>.4){
+      ctx.save();ctx.translate(ax+13,(y0+y1)/2);ctx.rotate(-Math.PI/2);
+      ctx.font=`700 ${Math.max(7.5,8*scale)}px 'IBM Plex Mono',monospace`;
       ctx.fillStyle=col;ctx.textAlign="center";ctx.fillText("SUBE",0,0);
       ctx.restore();
     }
   } else {
     const ay=(y0+y1)/2;
-    ctx.beginPath();ctx.moveTo(x1-2,ay);ctx.lineTo(x0+8,ay);ctx.stroke();
-    ctx.beginPath();ctx.moveTo(x0,ay);ctx.lineTo(x0+10,ay-5);ctx.lineTo(x0+10,ay+5);ctx.closePath();ctx.fill();
-    if(scale>.45){
-      ctx.font=`600 ${Math.max(7,7.5*scale)}px 'IBM Plex Mono',monospace`;
+    ctx.beginPath();ctx.moveTo(x1-2,ay);ctx.lineTo(x0+10,ay);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(x0,ay);ctx.lineTo(x0+12,ay-6);ctx.lineTo(x0+12,ay+6);ctx.closePath();ctx.fill();
+    if(scale>.4){
+      ctx.font=`700 ${Math.max(7.5,8*scale)}px 'IBM Plex Mono',monospace`;
       ctx.fillStyle=col;ctx.textAlign="center";ctx.textBaseline="bottom";
-      ctx.fillText("SUBE",(x0+x1)/2,ay-8);ctx.textBaseline="alphabetic";
+      ctx.fillText("SUBE",(x0+x1)/2,ay-9);ctx.textBaseline="alphabetic";
     }
   }
   ctx.restore();
