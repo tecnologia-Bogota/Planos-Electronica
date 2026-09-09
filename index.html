@@ -423,6 +423,7 @@ canvas{position:absolute;top:0;left:0;pointer-events:none;}
   <div class="tb-group">
     <button class="tb-btn" onclick="openProjModal()">⚙ Proyecto</button>
     <button class="tb-btn" onclick="loadPlan()">📂 Abrir</button>
+    <button class="tb-btn" onclick="forceReloadCloud()" title="Trae la última versión guardada en la nube">☁ Recargar</button>
     <button class="tb-btn btn-save" onclick="savePlan()">💾 Guardar</button>
     <button class="tb-btn btn-pdf" onclick="exportPDF()">📄 PDF</button>
     <button class="tb-btn danger" onclick="clearAll()">🗑 Limpiar</button>
@@ -1146,6 +1147,7 @@ function drawZone(ctx,z){
   ctx.strokeStyle=sel?zc.stroke:zc.stroke+"66";ctx.lineWidth=sel?2:1;
   ctx.setLineDash([7,4]);ctx.strokeRect(p.x,p.y,ws,hs);ctx.setLineDash([]);
   if(sel){ctx.strokeStyle=zc.stroke;ctx.lineWidth=2.5;ctx.strokeRect(p.x,p.y,ws,hs);}
+  if(z.type==="escaleras")drawStairsSymbol(ctx,p,ws,hs,zc.stroke);
   const fs=Math.max(10,12*scale);
   ctx.font=`600 ${fs}px 'IBM Plex Sans',sans-serif`;ctx.fillStyle=zc.stroke;ctx.textBaseline="top";
   ctx.fillText((z.piso?z.piso+" · ":"")+z.name,p.x+7,p.y+6);
@@ -1157,6 +1159,51 @@ function drawZone(ctx,z){
   if(sel){
     ctx.fillStyle=zc.stroke;ctx.fillRect(p.x+ws-8,p.y+hs-8,8,8);
   }
+}
+
+// Real staircase symbol (parallel treads + direction arrow) drawn inside a zone rect.
+function drawStairsSymbol(ctx,p,ws,hs,col){
+  const vertical=hs>=ws; // steps run across the SHORT side, repeated along the LONG side
+  const margin=Math.min(ws,hs)*.16;
+  const x0=p.x+margin,y0=p.y+margin,x1=p.x+ws-margin,y1=p.y+hs-margin;
+  const longLen=vertical?(y1-y0):(x1-x0);
+  const step=Math.max(9,11*scale);
+  const n=Math.max(3,Math.min(22,Math.round(longLen/step)));
+  ctx.save();
+  ctx.strokeStyle=col+"cc";ctx.lineWidth=Math.max(1,1.3*scale);
+  for(let i=0;i<=n;i++){
+    const t=i/n;
+    if(vertical){
+      const yy=y0+t*(y1-y0);
+      ctx.beginPath();ctx.moveTo(x0,yy);ctx.lineTo(x1,yy);ctx.stroke();
+    } else {
+      const xx=x0+t*(x1-x0);
+      ctx.beginPath();ctx.moveTo(xx,y0);ctx.lineTo(xx,y1);ctx.stroke();
+    }
+  }
+  // Direction arrow (sentido de subida) along the long axis, offset to one side
+  ctx.strokeStyle=col;ctx.fillStyle=col;ctx.lineWidth=Math.max(1.4,1.8*scale);
+  if(vertical){
+    const ax=(x0+x1)/2;
+    ctx.beginPath();ctx.moveTo(ax,y1-2);ctx.lineTo(ax,y0+8);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(ax,y0);ctx.lineTo(ax-5,y0+10);ctx.lineTo(ax+5,y0+10);ctx.closePath();ctx.fill();
+    if(scale>.45){
+      ctx.save();ctx.translate(ax+12,(y0+y1)/2);ctx.rotate(-Math.PI/2);
+      ctx.font=`600 ${Math.max(7,7.5*scale)}px 'IBM Plex Mono',monospace`;
+      ctx.fillStyle=col;ctx.textAlign="center";ctx.fillText("SUBE",0,0);
+      ctx.restore();
+    }
+  } else {
+    const ay=(y0+y1)/2;
+    ctx.beginPath();ctx.moveTo(x1-2,ay);ctx.lineTo(x0+8,ay);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(x0,ay);ctx.lineTo(x0+10,ay-5);ctx.lineTo(x0+10,ay+5);ctx.closePath();ctx.fill();
+    if(scale>.45){
+      ctx.font=`600 ${Math.max(7,7.5*scale)}px 'IBM Plex Mono',monospace`;
+      ctx.fillStyle=col;ctx.textAlign="center";ctx.textBaseline="bottom";
+      ctx.fillText("SUBE",(x0+x1)/2,ay-8);ctx.textBaseline="alphabetic";
+    }
+  }
+  ctx.restore();
 }
 
 // ═══ DRAW WALL ═══
@@ -2283,6 +2330,13 @@ async function saveToCloud(notify){
     setCloudStatus("err");
     if(notify)showToast("No se pudo sincronizar: "+e.message,"err");
   }
+}
+
+async function forceReloadCloud(){
+  if(!firebaseReady){showToast("Firebase no está configurado en este archivo","err");return;}
+  if((items.length>0||walls.length>0||zones.length>0)&&!confirm("Esto reemplaza lo que ves en pantalla por la última versión guardada en la nube. ¿Continuar?"))return;
+  showToast("Trayendo última versión de la nube…","info");
+  await loadFromCloud();
 }
 
 async function loadFromCloud(){
