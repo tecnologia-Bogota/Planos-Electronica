@@ -354,6 +354,7 @@ canvas{position:absolute;top:0;left:0;pointer-events:none;}
       <option value="hdmi">HDMI/Video</option>
       <option value="infrarrojo">Haz IR (barrera↔barrera)</option>
       <option value="cerca">Alambre cerca eléctrica</option>
+      <option value="cruce">Línea de cruce virtual (cámara↔cámara)</option>
     </select>
   </div>
 
@@ -690,6 +691,12 @@ function drawIcon(ctx, type, cx, cy, sz, col) {
     case 'cam_bala_ip': case 'cam_bala_ana':
       ctx.beginPath();ctx.roundRect?ctx.roundRect(cx-.72*s,cy-.28*s,1.35*s,.56*s,.1*s):ctx.rect(cx-.72*s,cy-.28*s,1.35*s,.56*s);
       ctx.stroke();C(.55,0,.25,false);C(.55,0,.1,true);L(-.72,0,-.3,0);break;
+    case 'cam_cruce':
+      ctx.beginPath();ctx.roundRect?ctx.roundRect(cx-.72*s,cy-.28*s,1.35*s,.56*s,.1*s):ctx.rect(cx-.72*s,cy-.28*s,1.35*s,.56*s);
+      ctx.stroke();C(.55,0,.25,false);C(.55,0,.1,true);L(-.72,0,-.3,0);
+      ctx.save();ctx.setLineDash([.09*s,.07*s]);ctx.lineWidth=Math.max(1,1.4*s/12);
+      L(-.15,-.68,.75,.62);ctx.restore();
+      break;
     case 'cam_ptz_ip': case 'cam_ptz_ana':
       C(0,-.1,.58,false);C(0,-.1,.22,true);L(0,.48,0,.72);L(-.18,.72,.18,.72);
       ctx.beginPath();ctx.arc(cx,cy-.1*s,.8*s,-2,-.3);ctx.stroke();break;
@@ -748,6 +755,9 @@ function drawIcon(ctx, type, cx, cy, sz, col) {
       R(-.82,.28,.26,.52,false);L(-.7,-.32,.82,-.32);break;
     case 'sensor_mag':
       R(-.62,-.26,.46,.52,false);R(.16,-.26,.46,.52,false);ctx.setLineDash([3,2]);L(-.16,0,.16,0);ctx.setLineDash([]);break;
+    case 'sensor_mag_pesado':
+      ctx.lineWidth=Math.max(1.6,2.4*s/12);
+      R(-.68,-.32,.52,.64,false);R(.16,-.32,.52,.64,false);ctx.setLineDash([3,2]);L(-.16,0,.16,0);ctx.setLineDash([]);break;
     case 'boton_panico': case 'boton_salida':
       C(0,0,.66,false);ctx.fillStyle=type==='boton_panico'?'#ef4444':'#22c55e';C(0,0,.44,true);ctx.fillStyle=col;break;
     // Alarm
@@ -843,13 +853,15 @@ const EQUIPS=[
     {id:"barrera_veh",n:"Barrera vehicular",s:"3m / 6m brazo",c:"#8b5cf6",bg:"#2e1065"},
     {id:"boton_salida",n:"Botón salida",s:"Verde / sin clavija",c:"#f59e0b",bg:"#451a03"},
     {id:"boton_panico",n:"Botón de pánico",s:"Fijo / inalámbrico",c:"#ef4444",bg:"#450a0a"},
-    {id:"sensor_mag",n:"Sensor magnético",s:"NC/NO puertas",c:"#f59e0b",bg:"#451a03"},
+    {id:"sensor_mag",n:"Sensor magnético liviano",s:"NC/NO puertas — empotrar",c:"#f59e0b",bg:"#451a03"},
+    {id:"sensor_mag_pesado",n:"Sensor magnético pesado",s:"NC/NO portones / rejas industriales",c:"#f59e0b",bg:"#451a03"},
     {id:"lector_qr",n:"Lector QR / Barras",s:"Código QR / barras",c:"#10b981",bg:"#064e3b"},
     {id:"palanca_emerg",n:"Palanca emergencia",s:"Rompecristal",c:"#ef4444",bg:"#450a0a"},
   ]},
   {cat:"Cámaras IP",items:[
     {id:"cam_domo_ip",n:"Cámara IP Domo",s:"2/4/8MP",c:"#a855f7",bg:"#3b0764"},
     {id:"cam_bala_ip",n:"Cámara IP Bala",s:"Exterior IR 30m",c:"#a855f7",bg:"#3b0764"},
+    {id:"cam_cruce",n:"Cámara cruce de línea",s:"IP con analítica de línea virtual",c:"#a855f7",bg:"#3b0764"},
     {id:"cam_ptz_ip",n:"Cámara PTZ IP",s:"Auto-seguimiento",c:"#a855f7",bg:"#3b0764"},
     {id:"cam_fisheye",n:"Cámara Ojo de pez",s:"360° panorámica",c:"#a855f7",bg:"#3b0764"},
     {id:"cam_360",n:"Cámara 360° mini",s:"Interior techo",c:"#a855f7",bg:"#3b0764"},
@@ -952,8 +964,8 @@ const ZC={
   ascensor:{fill:"rgba(168,85,247,.09)",stroke:"#a855f7",label:"Ascensor"},
 };
 
-const WIRE_COLORS={utp:"#3b82f6",coaxial:"#a3a3a3",fibra:"#f59e0b",rs485:"#22c55e",v220:"#ef4444",poe:"#a855f7",hdmi:"#06b6d4",infrarrojo:"#f59e0b",cerca:"#f97316"};
-const WIRE_LABELS={utp:"UTP Cat6",coaxial:"Coaxial",fibra:"Fibra OP",v220:"220V",rs485:"RS-485",poe:"PoE",hdmi:"HDMI",infrarrojo:"Haz IR",cerca:"Cerca eléc."};
+const WIRE_COLORS={utp:"#3b82f6",coaxial:"#a3a3a3",fibra:"#f59e0b",rs485:"#22c55e",v220:"#ef4444",poe:"#a855f7",hdmi:"#06b6d4",infrarrojo:"#f59e0b",cerca:"#f97316",cruce:"#ec4899"};
+const WIRE_LABELS={utp:"UTP Cat6",coaxial:"Coaxial",fibra:"Fibra OP",v220:"220V",rs485:"RS-485",poe:"PoE",hdmi:"HDMI",infrarrojo:"Haz IR",cerca:"Cerca eléc.",cruce:"Línea de cruce (virtual)"};
 const WIRE_DASH={utp:[],coaxial:[6,3],fibra:[],v220:[2,4],rs485:[8,3],poe:[],hdmi:[3,3],infrarrojo:[5,4],cerca:[]};
 const WALL_COLORS={wall:"#94a3b8",door:"#f59e0b",win:"#60a5fa",conduit:"#22c55e",raceway:"#eab308",garS:"#fb923c",garD:"#fb923c",linea:"#7a9bb8"};
 const WALL_LABELS={wall:"Pared",door:"Puerta",win:"Ventana",conduit:"Tubería",raceway:"Canaleta",garS:"Puerta parqueadero 1 hoja",garD:"Puerta parqueadero 2 hojas",linea:"Línea / trazo"};
@@ -1406,7 +1418,7 @@ function drawText(ctx,t){
 
 // Equipment types that get a facing indicator drawn in drawItem, based on it.rot.
 // Cone = field-of-view wedge (cameras with a lens). Arrow = simple facing arrow (PIR/sensors).
-const DIR_CONE_TYPES=new Set(["cam_domo_ip","cam_domo_ana","cam_domo_ahd","cam_domo_4k","cam_bala_ip","cam_bala_ana","cam_ptz_ip","cam_ptz_ana","cam_lpr","cam_termica","cam_box"]);
+const DIR_CONE_TYPES=new Set(["cam_domo_ip","cam_domo_ana","cam_domo_ahd","cam_domo_4k","cam_bala_ip","cam_bala_ana","cam_ptz_ip","cam_ptz_ana","cam_lpr","cam_termica","cam_box","cam_cruce"]);
 const DIR_ARROW_TYPES=new Set(["pir_simple","pir_doble","pir_exterior","pir_cortina","detector_temp","barrera_infr"]);
 
 // World-space direction vector for an item's current rotation (0°=up/north, clockwise).
@@ -1540,6 +1552,29 @@ function drawWire(ctx,w){
       ctx.textAlign="left";ctx.textBaseline="alphabetic";
     }
     if(sel)[pa,pb].forEach(pt=>{ctx.fillStyle="#0ea5e9";ctx.beginPath();ctx.arc(pt.x,pt.y,5,0,Math.PI*2);ctx.fill();});
+    return;
+  }
+
+  // ── VIRTUAL CROSSING LINE: dashed, no cable plugs — it's an analytics
+  // boundary between two line-crossing cameras, not a physical wire. ──
+  if(w.type==="cruce"){
+    ctx.strokeStyle=sel?col:col+"cc";ctx.lineWidth=sel?2.2:1.6;
+    ctx.setLineDash([10,6]);
+    ctx.beginPath();ctx.moveTo(pa.x,pa.y);ctx.lineTo(pb.x,pb.y);ctx.stroke();
+    ctx.setLineDash([]);
+    [pa,pb].forEach(pt=>{
+      ctx.strokeStyle=col;ctx.lineWidth=2;
+      ctx.beginPath();ctx.moveTo(pt.x-6,pt.y-6);ctx.lineTo(pt.x+6,pt.y+6);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(pt.x-6,pt.y+6);ctx.lineTo(pt.x+6,pt.y-6);ctx.stroke();
+    });
+    if(scale>.4){
+      const mid={x:(pa.x+pb.x)/2,y:(pa.y+pb.y)/2};
+      ctx.font=`700 ${Math.max(7,8*scale)}px 'IBM Plex Mono',monospace`;
+      ctx.fillStyle=col;ctx.textAlign="center";ctx.textBaseline="bottom";
+      ctx.fillText("⚡ LÍNEA VIRTUAL DE CRUCE",mid.x,mid.y-7);
+      ctx.textAlign="left";ctx.textBaseline="alphabetic";
+    }
+    if(sel)[pa,pb].forEach(pt=>{ctx.fillStyle=col;ctx.beginPath();ctx.arc(pt.x,pt.y,5,0,Math.PI*2);ctx.fill();});
     return;
   }
 
