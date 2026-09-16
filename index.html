@@ -63,6 +63,7 @@ body{touch-action:none;}
   border:1px solid var(--bd);border-radius:6px;font-size:12px;font-family:var(--font);cursor:pointer;
   min-height:34px;
 }
+#bg-op{width:70px;flex-shrink:0;accent-color:var(--ora);}
 .btn-pdf{background:linear-gradient(135deg,#0ea5e9,#0284c7)!important;border-color:#0369a1!important;color:#fff!important;font-weight:700!important;}
 .btn-save{background:linear-gradient(135deg,#059669,#047857)!important;border-color:#065f46!important;color:#fff!important;font-weight:700!important;}
 
@@ -140,6 +141,22 @@ canvas{position:absolute;top:0;left:0;pointer-events:none;}
   box-shadow:0 4px 20px rgba(251,146,60,.4);
 }
 #room-hint.show{display:block;}
+#calib-hint{
+  display:none;position:absolute;top:8px;left:50%;transform:translateX(-50%);
+  background:rgba(249,115,22,.94);color:#fff;border-radius:20px;
+  padding:8px 18px;font-size:13px;font-family:var(--font);font-weight:600;
+  pointer-events:none;z-index:31;white-space:nowrap;
+  box-shadow:0 4px 20px rgba(249,115,22,.45);
+}
+#calib-hint.show{display:block;}
+#bgedit-hint{
+  display:none;position:absolute;bottom:8px;left:50%;transform:translateX(-50%);
+  background:rgba(249,115,22,.92);color:#fff;border-radius:20px;
+  padding:7px 16px;font-size:12px;font-family:var(--font);font-weight:600;
+  pointer-events:none;z-index:31;white-space:nowrap;
+  box-shadow:0 4px 20px rgba(249,115,22,.4);
+}
+#bgedit-hint.show{display:block;}
 
 /* Wall mode floating bar */
 #wall-bar{
@@ -234,6 +251,7 @@ canvas{position:absolute;top:0;left:0;pointer-events:none;}
 .mbs{flex:1;padding:12px;background:var(--bg3);color:var(--txt2);border:1px solid var(--bd);border-radius:7px;font-size:14px;font-family:var(--font);cursor:pointer;min-height:48px;}
 .proj-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
 .proj-field-full{grid-column:1/-1;}
+.modal-note{font-size:11px;color:var(--txt2);line-height:1.55;margin-bottom:14px;}
 
 /* ── CTX MENU ── */
 #ctx{
@@ -328,6 +346,7 @@ canvas{position:absolute;top:0;left:0;pointer-events:none;}
 </style>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 </head>
 <body>
 <div id="app">
@@ -378,6 +397,17 @@ canvas{position:absolute;top:0;left:0;pointer-events:none;}
       <option value="22">Muro estructural</option>
       <option value="30">Muro grueso</option>
     </select>
+  </div>
+
+  <div class="sep"></div>
+
+  <!-- PLANO BASE (imagen / PDF importado) -->
+  <div class="tb-group">
+    <button class="tb-btn arch" onclick="importBgPlan()" title="Importar plano de arquitecto (JPG/PNG/PDF)">🖼 Plano base</button>
+    <button class="tb-btn arch" id="btn-bg-edit" onclick="toggleBgEdit()" title="Mover / escalar el plano base (B)">✥ Ajustar</button>
+    <button class="tb-btn arch" onclick="startCalib()" title="Calibrar escala real con una medida conocida (M)">📏 Calibrar</button>
+    <input id="bg-op" type="range" min="0" max="100" value="55" oninput="setBgOpacity(this.value)" title="Opacidad del plano base"/>
+    <button class="tb-btn danger" onclick="removeBgPlan()" title="Quitar plano base">✕ Plano</button>
   </div>
 
   <div class="sep"></div>
@@ -452,6 +482,8 @@ canvas{position:absolute;top:0;left:0;pointer-events:none;}
     <!-- Zone drawing hint -->
     <div id="zone-hint">🖊 Arrastra para crear la zona</div>
     <div id="room-hint">🖊 Arrastra para crear un cuarto (4 paredes)</div>
+    <div id="calib-hint">📏 Toca dos puntos de una medida conocida del plano</div>
+    <div id="bgedit-hint">✥ Arrastra el plano base · esquina ⤡ para escalar · ESC para salir</div>
     <!-- Wall mode bar -->
     <div id="wall-bar">
       <span class="wb-label">Tipo:</span>
@@ -465,6 +497,7 @@ canvas{position:absolute;top:0;left:0;pointer-events:none;}
       <button class="wb-btn" id="wb-linea" onclick="setWallSub('linea')">Línea</button>
       <span class="wb-label" style="margin-left:6px;color:var(--txt3)">ESC = salir</span>
     </div>
+    <canvas id="bgc"></canvas>
     <canvas id="gc"></canvas>
     <canvas id="mc"></canvas>
     <canvas id="oc"></canvas>
@@ -488,6 +521,7 @@ canvas{position:absolute;top:0;left:0;pointer-events:none;}
   <div class="st-item">⌇ <span id="st-wcnt">0 cables</span></div>
   <div class="st-item">⬜ <span id="st-zcnt">0 zonas</span></div>
   <div class="st-item">▬ <span id="st-walls">0 paredes</span></div>
+  <div class="st-item">🖼 <span id="st-bg">Sin plano base</span></div>
   <div class="st-item" style="margin-left:auto;border-right:none;border-left:1px solid var(--bd);">
     <span id="st-sel" style="color:var(--acc);font-weight:600;"></span>
     · <span id="st-proj" style="color:var(--txt3)">Sin proyecto</span>
@@ -525,6 +559,22 @@ canvas{position:absolute;top:0;left:0;pointer-events:none;}
     <div class="mbtns">
       <button class="mbs" onclick="cancelZone()">Cancelar</button>
       <button class="mbp" onclick="confirmZone()">✓ Crear zona</button>
+    </div>
+  </div>
+</div>
+
+<!-- Calibration modal -->
+<div class="modal-wrap" id="cal-wrap">
+  <div class="modal" style="width:min(330px,92vw)">
+    <h4>📏 Calibrar escala del plano</h4>
+    <p class="modal-note">Marcaste dos puntos sobre el plano importado. Escribe la distancia real
+    entre ellos: una cota del arquitecto, el ancho de una puerta o un muro medido en sitio.
+    El plano se re-escala para que todas las medidas de la app sean reales.</p>
+    <label class="ml">Distancia real (metros)</label>
+    <input class="mi" type="number" step="0.01" id="cal-m" placeholder="3.50"/>
+    <div class="mbtns">
+      <button class="mbs" onclick="cancelCalib()">Cancelar</button>
+      <button class="mbp" onclick="applyCalib()">✓ Aplicar escala</button>
     </div>
   </div>
 </div>
@@ -639,6 +689,8 @@ canvas{position:absolute;top:0;left:0;pointer-events:none;}
   <div class="hk"><span>Tubería</span><span class="hk-key">C</span></div>
   <div class="hk"><span>Línea / trazo</span><span class="hk-key">L</span></div>
   <div class="hk"><span>Texto</span><span class="hk-key">T</span></div>
+  <div class="hk"><span>Ajustar plano base</span><span class="hk-key">B</span></div>
+  <div class="hk"><span>Calibrar escala</span><span class="hk-key">M</span></div>
   <div class="hk"><span>Ajustar vista</span><span class="hk-key">F</span></div>
   <div class="hk"><span>Grid</span><span class="hk-key">G</span></div>
   <div class="hk"><span>Rotar</span><span class="hk-key">R</span></div>
@@ -650,7 +702,8 @@ canvas{position:absolute;top:0;left:0;pointer-events:none;}
     Tablet: arrastra con el dedo o lápiz<br>
     Zona: toca y arrastra para crear área<br>
     Pared: toca 2 puntos (inicio → fin)<br>
-    Zoom: pellizca con 2 dedos
+    Zoom: pellizca con 2 dedos<br>
+    Plano base: 🖼 importar → ✥ ajustar → 📏 calibrar
   </div>
 </div>
 
@@ -793,8 +846,6 @@ function drawIcon(ctx, type, cx, cy, sz, col) {
     case 'barrera_infr':
       R(-.82,-.52,.22,1.04,false);R(.6,-.52,.22,1.04,false);ctx.setLineDash([4,3]);
       for(let i=-1;i<=1;i++) L(-.6,i*.2,.6,i*.2);ctx.setLineDash([]);break;
-    case 'sirena_ext':
-      C(0,0,.66,false);break;
     case 'cerca_electrica':
       L(-.78,.62,-.78,-.62);L(.78,.62,.78,-.62);
       [-.32,.06,.44].forEach(yy=>L(-.78,yy,.78,yy));
@@ -991,12 +1042,19 @@ let currentTab="equip";
 let cssW=0, cssH=0, DPR=1;
 const EXPORT_SCALE=3; // supersampling factor for crisp PDF/print export
 let rotatingItem=null, rotStartAng=0, rotStartRot=0;
+// ── PLANO BASE (imagen o PDF importado del arquitecto) ──
+let bgPlan=null;          // {src,x,y,w,h,op,name}
+let bgImgEl=null;         // Image element ya decodificada
+let bgEditMode=false, bgDrag=null, bgResize=null;
+let calibMode=false, calibPts=[];
 let projData={name:"",client:"",nit:"",addr:"",rev:"Rev. A",date:new Date().toISOString().slice(0,10),notes:""};
 
 const ca=document.getElementById("ca");
+const bgc=document.getElementById("bgc");
 const gc=document.getElementById("gc");
 const mc2=document.getElementById("mc");
 const oc2=document.getElementById("oc");
+const bgx=bgc.getContext("2d");
 const gx=gc.getContext("2d");
 const mx=mc2.getContext("2d");
 const ox2=oc2.getContext("2d");
@@ -1006,11 +1064,11 @@ function resize(){
   const r=ca.getBoundingClientRect();
   DPR=Math.max(1,Math.min(3,window.devicePixelRatio||1));
   cssW=r.width;cssH=r.height;
-  [gc,mc2,oc2].forEach(c=>{
+  [bgc,gc,mc2,oc2].forEach(c=>{
     c.width=Math.round(cssW*DPR);c.height=Math.round(cssH*DPR);
     c.style.width=cssW+"px";c.style.height=cssH+"px";
   });
-  [gx,mx,ox2].forEach(cx=>{cx.setTransform(DPR,0,0,DPR,0,0);cx.imageSmoothingEnabled=true;cx.imageSmoothingQuality="high";});
+  [bgx,gx,mx,ox2].forEach(cx=>{cx.setTransform(DPR,0,0,DPR,0,0);cx.imageSmoothingEnabled=true;cx.imageSmoothingQuality="high";});
   render();
 }
 window.addEventListener("resize",resize);
@@ -1083,6 +1141,8 @@ function pickArch(action){
 // ═══ TOOLS ═══
 function setTool(t){
   tool=t;
+  // Al entrar a cualquier herramienta de dibujo se sale del ajuste del plano base
+  if(t!=="select"&&bgEditMode)setBgEdit(false);
   // Reset all buttons
   ["select","zone","wire","text","room"].forEach(tt=>{const b=document.getElementById("btn-"+tt);if(b)b.classList.toggle("on",t===tt);});
   ["wall","door","garS","garD","window","conduit","raceway","linea"].forEach(s=>{const b=document.getElementById("btn-"+s);if(b)b.classList.remove("on");});
@@ -1135,8 +1195,10 @@ function snap(v){return snapEnabled?Math.round(v/10)*10:v;}
 function trunc(s,n){return s&&s.length>n?s.slice(0,n)+"…":s;}
 
 // ═══ GRID ═══
-function drawGrid(ctx,w,h){
-  ctx.clearRect(0,0,w,h);
+// noClear=true se usa en la exportación PDF, donde el plano base ya fue pintado
+// en el mismo canvas y no debe borrarse.
+function drawGrid(ctx,w,h,noClear){
+  if(!noClear)ctx.clearRect(0,0,w,h);
   if(!showGrid)return;
   const gs=40*scale;
   ctx.strokeStyle="rgba(30,47,69,.42)";ctx.lineWidth=.45;
@@ -1628,9 +1690,207 @@ function drawWire(ctx,w){
   if(sel)[pa,pb].forEach(pt=>{ctx.fillStyle="#0ea5e9";ctx.beginPath();ctx.arc(pt.x,pt.y,5,0,Math.PI*2);ctx.fill();});
 }
 
+// ═══════════════════════════════════════════════════════════════
+//  PLANO BASE — importar plano de arquitecto (JPG / PNG / PDF),
+//  ubicarlo, escalarlo, calibrarlo a medidas reales y montar los
+//  equipos encima. Se dibuja SIEMPRE por debajo de todo.
+// ═══════════════════════════════════════════════════════════════
+
+// Reduce la imagen a un máximo de lado para que el JSON / Firebase no exploten.
+function downscaleImg(im,maxPx){
+  let w=im.naturalWidth||im.width,h=im.naturalHeight||im.height;
+  const f=Math.min(1,maxPx/Math.max(w,h));
+  w=Math.max(1,Math.round(w*f));h=Math.max(1,Math.round(h*f));
+  const c=document.createElement("canvas");c.width=w;c.height=h;
+  const x=c.getContext("2d");
+  x.fillStyle="#ffffff";x.fillRect(0,0,w,h);
+  x.imageSmoothingEnabled=true;x.imageSmoothingQuality="high";
+  x.drawImage(im,0,0,w,h);
+  return c.toDataURL("image/jpeg",.82);
+}
+
+function fileToScaledDataURL(file,maxPx){
+  return new Promise((res,rej)=>{
+    const r=new FileReader();
+    r.onload=()=>{
+      const im=new Image();
+      im.onload=()=>{try{res(downscaleImg(im,maxPx));}catch(err){rej(err);}};
+      im.onerror=()=>rej(new Error("imagen no válida"));
+      im.src=r.result;
+    };
+    r.onerror=()=>rej(new Error("no se pudo leer el archivo"));
+    r.readAsDataURL(file);
+  });
+}
+
+// Renderiza la PRIMERA página del PDF a imagen (los planos de arquitecto
+// casi siempre vienen en PDF exportado de AutoCAD / Revit / SketchUp).
+async function pdfToImage(file){
+  if(!window.pdfjsLib)throw new Error("pdf.js no cargó — revisa la conexión");
+  pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+  const buf=await file.arrayBuffer();
+  const pdf=await pdfjsLib.getDocument({data:buf}).promise;
+  const page=await pdf.getPage(1);
+  const v0=page.getViewport({scale:1});
+  const k=Math.min(3,2400/Math.max(v0.width,v0.height));
+  const vp=page.getViewport({scale:k});
+  const c=document.createElement("canvas");
+  c.width=Math.round(vp.width);c.height=Math.round(vp.height);
+  const x=c.getContext("2d");
+  x.fillStyle="#ffffff";x.fillRect(0,0,c.width,c.height);
+  await page.render({canvasContext:x,viewport:vp}).promise;
+  if(pdf.numPages>1)showToast("PDF de "+pdf.numPages+" páginas — se importó la página 1","info");
+  return c.toDataURL("image/jpeg",.85);
+}
+
+function importBgPlan(){
+  const inp=document.createElement("input");
+  inp.type="file";inp.accept="image/*,.pdf,application/pdf";
+  inp.onchange=async e=>{
+    const f=e.target.files[0];if(!f)return;
+    try{
+      showToast("Procesando plano…","info");
+      const isPdf=f.type==="application/pdf"||/\.pdf$/i.test(f.name);
+      const url=isPdf?await pdfToImage(f):await fileToScaledDataURL(f,2400);
+      placeBgPlan(url,f.name);
+    }catch(err){showToast("No se pudo importar: "+err.message,"err");}
+  };
+  inp.click();
+}
+
+// Coloca el plano encajado dentro del tamaño de papel actual.
+function placeBgPlan(dataUrl,name){
+  const im=new Image();
+  im.onload=()=>{
+    const ps=document.getElementById("paper-sel").value.split(",");
+    const k=Math.min(+ps[0]/im.naturalWidth,+ps[1]/im.naturalHeight);
+    bgPlan={src:dataUrl,name:name||"plano",x:0,y:0,
+      w:im.naturalWidth*k,h:im.naturalHeight*k,
+      op:(+document.getElementById("bg-op").value||55)/100};
+    bgImgEl=im;
+    setBgEdit(true);
+    zoomFit();updBgStatus();
+    showToast("Plano importado — ajústalo y luego usa 📏 Calibrar","ok");
+    const mb=dataUrl.length*.75/1048576;
+    if(mb>3.5)showToast("Plano pesado ("+mb.toFixed(1)+" MB): la nube puede rechazarlo","err");
+  };
+  im.onerror=()=>showToast("Imagen no válida","err");
+  im.src=dataUrl;
+}
+
+function removeBgPlan(){
+  if(!bgPlan){showToast("No hay plano base","info");return;}
+  if(!confirm("¿Quitar el plano base? Los equipos, paredes y zonas se conservan."))return;
+  bgPlan=null;bgImgEl=null;setBgEdit(false);
+  updBgStatus();render();scheduleCloudSave();
+  showToast("Plano base eliminado","ok");
+}
+
+function setBgOpacity(v){
+  if(!bgPlan)return;
+  bgPlan.op=Math.max(0,Math.min(1,(+v)/100));
+  render();
+}
+
+function setBgEdit(on){
+  bgEditMode=!!on&&!!bgPlan;
+  const b=document.getElementById("btn-bg-edit");
+  if(b)b.classList.toggle("on",bgEditMode);
+  document.getElementById("bgedit-hint").classList.toggle("show",bgEditMode);
+  if(!bgEditMode){bgDrag=null;bgResize=null;}
+  render();
+}
+
+function toggleBgEdit(){
+  if(!bgPlan){showToast("Primero importa un plano base","err");return;}
+  if(!bgEditMode&&tool!=="select")setTool("select");
+  setBgEdit(!bgEditMode);
+  showToast(bgEditMode?"Ajuste ON: arrastra el plano o su esquina ⤡":"Plano base bloqueado","info");
+}
+
+function updBgStatus(){
+  const el=document.getElementById("st-bg");
+  if(!el)return;
+  el.textContent=bgPlan?trunc(bgPlan.name||"plano",16)+(bgPlan.cal?" ✓cal":""):"Sin plano base";
+  el.style.color=bgPlan?(bgPlan.cal?"var(--grn)":"var(--ora)"):"var(--txt3)";
+}
+
+function bgHandleWorld(){return bgPlan?{x:bgPlan.x+bgPlan.w,y:bgPlan.y+bgPlan.h}:null;}
+
+// ── CALIBRACIÓN: dos puntos + distancia real = escala verdadera ──
+function startCalib(){
+  if(!bgPlan){showToast("Primero importa un plano base","err");return;}
+  setTool("select");setBgEdit(false);
+  calibMode=true;calibPts=[];
+  ca.className="zoning";
+  document.getElementById("calib-hint").classList.add("show");
+  showToast("Toca el primer punto de una medida conocida","info");
+}
+
+function applyCalib(){
+  const m=parseFloat(document.getElementById("cal-m").value);
+  if(!m||m<=0||calibPts.length<2){showToast("Distancia inválida","err");return;}
+  const d=Math.hypot(calibPts[1].x-calibPts[0].x,calibPts[1].y-calibPts[0].y);
+  if(d<2){showToast("Los dos puntos quedaron muy cerca — repite la calibración","err");return;}
+  const k=(m*100)/d,P=calibPts[0];   // 100 unidades internas = 1 metro
+  saveUndo();
+  bgPlan.x=P.x+(bgPlan.x-P.x)*k;
+  bgPlan.y=P.y+(bgPlan.y-P.y)*k;
+  bgPlan.w*=k;bgPlan.h*=k;bgPlan.cal=true;
+  document.getElementById("cal-wrap").classList.remove("show");
+  document.getElementById("cal-m").value="";
+  calibMode=false;calibPts=[];ca.className="";
+  document.getElementById("calib-hint").classList.remove("show");
+  clearOv();updBgStatus();zoomFit();render();scheduleCloudSave();
+  showToast("Escala calibrada ✓ — las medidas del plano ya son reales","ok");
+}
+
+function cancelCalib(){
+  document.getElementById("cal-wrap").classList.remove("show");
+  document.getElementById("calib-hint").classList.remove("show");
+  calibMode=false;calibPts=[];ca.className="";clearOv();
+}
+
+// ── Dibujo de la capa de fondo ──
+function drawBg(){
+  bgx.clearRect(0,0,cssW,cssH);
+  if(!bgPlan||!bgImgEl||!bgImgEl.complete||!bgImgEl.naturalWidth)return;
+  const p=w2s(bgPlan.x,bgPlan.y),W=bgPlan.w*scale,H=bgPlan.h*scale;
+  bgx.save();
+  bgx.globalAlpha=Math.max(0,Math.min(1,bgPlan.op??.55));
+  bgx.imageSmoothingEnabled=true;bgx.imageSmoothingQuality="high";
+  bgx.drawImage(bgImgEl,p.x,p.y,W,H);
+  bgx.restore();
+  if(bgEditMode){
+    bgx.strokeStyle="#f97316";bgx.lineWidth=2;bgx.setLineDash([8,5]);
+    bgx.strokeRect(p.x,p.y,W,H);bgx.setLineDash([]);
+    bgx.fillStyle="#f97316";bgx.fillRect(p.x+W-11,p.y+H-11,22,22);
+    bgx.fillStyle="#000";bgx.font="bold 13px 'IBM Plex Sans',sans-serif";
+    bgx.textAlign="center";bgx.textBaseline="middle";
+    bgx.fillText("⤡",p.x+W,p.y+H);
+    bgx.textAlign="left";bgx.textBaseline="alphabetic";
+  }
+}
+
+// Restaura el plano base al abrir un JSON o al traer datos de la nube.
+function setBgFromData(b){
+  bgPlan=b||null;bgImgEl=null;
+  if(bgPlan&&bgPlan.src){
+    const im=new Image();
+    im.onload=()=>{updBgStatus();render();};
+    im.onerror=()=>{showToast("El plano base guardado no se pudo cargar","err");};
+    im.src=bgPlan.src;
+    bgImgEl=im;
+  }
+  const op=document.getElementById("bg-op");
+  if(op&&bgPlan)op.value=Math.round((bgPlan.op??.55)*100);
+  setBgEdit(false);updBgStatus();render();
+}
+
 // ═══ RENDER ═══
 function render(){
   const W=cssW,H=cssH;
+  drawBg();
   drawGrid(gx,W,H);
   mx.clearRect(0,0,W,H);
   zones.forEach(z=>drawZone(mx,z));
@@ -1695,12 +1955,42 @@ function onDown(e){
 
   // Pinch-to-zoom: if 2 fingers, start pinch
   if(e.touches&&e.touches.length===2){
-    pinching=true;panning=false;dragEl=null;
+    pinching=true;panning=false;dragEl=null;bgDrag=null;bgResize=null;
     pinchDist0=pinchDist(e);pinchScale0=scale;pinchOx0=ox;pinchOy0=oy;
     return;
   }
 
   const sp=evPos(e);const wp=s2w(sp.x,sp.y);
+
+  // ── CALIBRACIÓN: capturar los dos puntos de la medida conocida ──
+  if(calibMode){
+    calibPts.push({x:wp.x,y:wp.y});
+    clearOv();
+    if(calibPts.length===1){
+      const a=w2s(wp.x,wp.y);
+      ox2.fillStyle="#f97316";ox2.beginPath();ox2.arc(a.x,a.y,6,0,Math.PI*2);ox2.fill();
+      showToast("Ahora toca el segundo punto","info");
+    }else{
+      calibMode=false;ca.className="";
+      document.getElementById("calib-hint").classList.remove("show");
+      setTimeout(()=>{
+        document.getElementById("cal-wrap").classList.add("show");
+        document.getElementById("cal-m").focus();
+      },80);
+    }
+    return;
+  }
+
+  // ── AJUSTE DEL PLANO BASE: mover o escalar desde la esquina ──
+  if(bgEditMode&&bgPlan){
+    const h=bgHandleWorld();
+    if(Math.hypot(wp.x-h.x,wp.y-h.y)<20/scale){
+      bgResize={ratio:bgPlan.w/bgPlan.h};saveUndo();return;
+    }
+    if(wp.x>=bgPlan.x&&wp.x<=bgPlan.x+bgPlan.w&&wp.y>=bgPlan.y&&wp.y<=bgPlan.y+bgPlan.h){
+      bgDrag={dx:wp.x-bgPlan.x,dy:wp.y-bgPlan.y};saveUndo();return;
+    }
+  }
 
   if(tool==="place"&&activeEq){
     saveUndo();
@@ -1811,6 +2101,29 @@ function onMove(e){
   document.getElementById("st-x").textContent=Math.round(wp.x);
   document.getElementById("st-y").textContent=Math.round(wp.y);
 
+  // ── Plano base: escalar desde la esquina (mantiene proporción) ──
+  if(bgResize&&bgPlan){
+    const nw=Math.max(40,wp.x-bgPlan.x);
+    bgPlan.w=nw;bgPlan.h=nw/(bgResize.ratio||1);
+    render();return;
+  }
+  // ── Plano base: mover ──
+  if(bgDrag&&bgPlan){
+    bgPlan.x=wp.x-bgDrag.dx;bgPlan.y=wp.y-bgDrag.dy;
+    render();return;
+  }
+  // ── Calibración: línea elástica entre el punto 1 y el dedo ──
+  if(calibMode&&calibPts.length===1){
+    clearOv();
+    const a=w2s(calibPts[0].x,calibPts[0].y);
+    ox2.strokeStyle="#f97316";ox2.lineWidth=2;ox2.setLineDash([6,4]);
+    ox2.beginPath();ox2.moveTo(a.x,a.y);ox2.lineTo(sp.x,sp.y);ox2.stroke();ox2.setLineDash([]);
+    ox2.fillStyle="#f97316";
+    ox2.beginPath();ox2.arc(a.x,a.y,6,0,Math.PI*2);ox2.fill();
+    ox2.beginPath();ox2.arc(sp.x,sp.y,5,0,Math.PI*2);ox2.fill();
+    return;
+  }
+
   if(panning&&panStart){ox=panOff.x+(sp.x-panStart.x);oy=panOff.y+(sp.y-panStart.y);render();return;}
 
   if(dragEl&&tool==="select"){
@@ -1877,6 +2190,12 @@ function onMove(e){
     ox2.setLineDash(wallSub==="conduit"?[8,4]:[]);
     ox2.beginPath();ox2.moveTo(ps.x,ps.y);ox2.lineTo(pe.x,pe.y);ox2.stroke();ox2.setLineDash([]);
     ox2.fillStyle=col;ox2.beginPath();ox2.arc(ps.x,ps.y,7,0,Math.PI*2);ox2.fill();
+    // Cota viva del tramo que se está dibujando
+    const lm=Math.hypot(ex-wallStart.x,ey-wallStart.y)/100;
+    ox2.fillStyle=col;ox2.font="bold 11px 'IBM Plex Mono',monospace";
+    ox2.textAlign="center";ox2.textBaseline="bottom";
+    ox2.fillText(lm.toFixed(2)+"m",(ps.x+pe.x)/2,(ps.y+pe.y)/2-8);
+    ox2.textAlign="left";ox2.textBaseline="alphabetic";
     return;
   }
 
@@ -1917,6 +2236,11 @@ function onMove(e){
 function onUp(e){
   // End pinch
   if(pinching){pinching=false;return;}
+
+  // Plano base: terminar mover / escalar
+  if(bgDrag||bgResize){
+    bgDrag=null;bgResize=null;render();scheduleCloudSave();return;
+  }
 
   if(panning){panning=false;panStart=null;return;}
   if(rotatingItem){saveUndo();rotatingItem=null;render();return;}
@@ -2177,7 +2501,7 @@ function dupSel(){
   if(tz){idxC++;texts.push({...tz,id:"tx"+idxC,x:tz.x+20,y:tz.y+20});render();showToast("Duplicado","ok");}
 }
 function clearAll(){
-  if(!confirm("¿Limpiar todo el plano?"))return;
+  if(!confirm("¿Limpiar todo el plano? (el plano base importado se conserva)"))return;
   items=[];zones=[];wires=[];walls=[];texts=[];selId=null;idxC=0;undoStack=[];redoStack=[];
   updCnt();render();hideProps();showToast("Plano limpiado","ok");
 }
@@ -2186,6 +2510,7 @@ function updCnt(){
   document.getElementById("st-wcnt").textContent=wires.length+" cable"+(wires.length!==1?"s":"");
   document.getElementById("st-zcnt").textContent=zones.length+" zona"+(zones.length!==1?"s":"");
   document.getElementById("st-walls").textContent=walls.length+" pared"+(walls.length!==1?"es":"");
+  updBgStatus();
   buildLeg();
 }
 
@@ -2237,10 +2562,15 @@ function renderMinimap(){
   mc.clearRect(0,0,mm.width,mm.height);mc.fillStyle="#0d1520";mc.fillRect(0,0,mm.width,mm.height);
   const allX=[...items.map(i=>i.x),...zones.map(z=>z.x),...zones.map(z=>z.x+z.w),...walls.map(w=>w.x1),...walls.map(w=>w.x2)];
   const allY=[...items.map(i=>i.y),...zones.map(z=>z.y),...zones.map(z=>z.y+z.h),...walls.map(w=>w.y1),...walls.map(w=>w.y2)];
+  if(bgPlan){allX.push(bgPlan.x,bgPlan.x+bgPlan.w);allY.push(bgPlan.y,bgPlan.y+bgPlan.h);}
   if(!allX.length)return;
   const minX=Math.min(...allX)-20,minY=Math.min(...allY)-20;
   const maxX=Math.max(...allX)+20,maxY=Math.max(...allY)+20;
   const ms=Math.min((mm.width-4)/(maxX-minX||1),(mm.height-4)/(maxY-minY||1));
+  if(bgPlan){
+    mc.strokeStyle="rgba(249,115,22,.7)";mc.lineWidth=1;
+    mc.strokeRect((bgPlan.x-minX)*ms+2,(bgPlan.y-minY)*ms+2,bgPlan.w*ms,bgPlan.h*ms);
+  }
   zones.forEach(z=>{const zc=ZC[z.type]||ZC.comun;mc.fillStyle=zc.fill;mc.strokeStyle=zc.stroke;mc.lineWidth=.5;const px=(z.x-minX)*ms+2,py=(z.y-minY)*ms+2;mc.fillRect(px,py,z.w*ms,z.h*ms);mc.strokeRect(px,py,z.w*ms,z.h*ms);});
   walls.forEach(w=>{mc.strokeStyle=WALL_COLORS[w.sub]||"#94a3b8";mc.lineWidth=1;mc.beginPath();mc.moveTo((w.x1-minX)*ms+2,(w.y1-minY)*ms+2);mc.lineTo((w.x2-minX)*ms+2,(w.y2-minY)*ms+2);mc.stroke();});
   items.forEach(it=>{const eq=findEq(it.type);if(!eq)return;const px=(it.x-minX)*ms+2,py=(it.y-minY)*ms+2;mc.fillStyle=eq.c;mc.beginPath();mc.arc(px,py,3,0,Math.PI*2);mc.fill();});
@@ -2258,6 +2588,7 @@ function buildLeg(){
   let hw="";const wt=[...new Set(wires.map(w=>w.type))];wt.forEach(t=>{hw+=`<div class="lg-r"><div class="lg-l"><div class="lg-d" style="background:${WIRE_COLORS[t]}"></div><span>${WIRE_LABELS[t]||t}</span></div><span class="lg-cnt">×${wires.filter(w=>w.type===t).length}</span></div>`;});
   document.getElementById("leg-wires").innerHTML=hw||"<span style='color:var(--txt3);font-size:9px'>Sin cables</span>";
   let ha="";const ws=[...new Set(walls.map(w=>w.sub))];ws.forEach(s=>{ha+=`<div class="lg-r"><div class="lg-l"><div class="lg-d" style="background:${WALL_COLORS[s]}"></div><span>${WALL_LABELS[s]||s}</span></div><span class="lg-cnt">×${walls.filter(w=>w.sub===s).length}</span></div>`;});
+  if(bgPlan)ha+=`<div class="lg-r"><div class="lg-l"><div class="lg-d" style="background:#f97316"></div><span>Plano base${bgPlan.cal?" (calibrado)":""}</span></div><span class="lg-cnt">×1</span></div>`;
   document.getElementById("leg-arch").innerHTML=ha||"<span style='color:var(--txt3);font-size:9px'>Sin elementos</span>";
 }
 
@@ -2269,6 +2600,7 @@ function chScale(d){
 function zoomFit(){
   const allX=[...items.map(i=>i.x),...zones.map(z=>z.x),...zones.map(z=>z.x+z.w),...walls.map(w=>w.x1),...walls.map(w=>w.x2)];
   const allY=[...items.map(i=>i.y),...zones.map(z=>z.y),...zones.map(z=>z.y+z.h),...walls.map(w=>w.y1),...walls.map(w=>w.y2)];
+  if(bgPlan){allX.push(bgPlan.x,bgPlan.x+bgPlan.w);allY.push(bgPlan.y,bgPlan.y+bgPlan.h);}
   if(!allX.length){scale=1;ox=40;oy=40;}
   else{
     const minX=Math.min(...allX)-50,minY=Math.min(...allY)-50;
@@ -2281,26 +2613,35 @@ function zoomFit(){
 }
 
 // ═══ UNDO / REDO ═══
+// Del plano base sólo se guarda su GEOMETRÍA (no la imagen), para no llenar
+// la memoria de la tablet con copias en base64 del mismo plano.
+function bgGeoSnap(){return bgPlan?JSON.stringify({x:bgPlan.x,y:bgPlan.y,w:bgPlan.w,h:bgPlan.h,op:bgPlan.op,cal:bgPlan.cal}):null;}
+function snapState(){
+  return{items:JSON.stringify(items),zones:JSON.stringify(zones),wires:JSON.stringify(wires),
+    walls:JSON.stringify(walls),texts:JSON.stringify(texts),bgGeo:bgGeoSnap()};
+}
+function applyState(s){
+  items=JSON.parse(s.items);zones=JSON.parse(s.zones);wires=JSON.parse(s.wires);
+  walls=JSON.parse(s.walls||"[]");texts=JSON.parse(s.texts||"[]");
+  if(s.bgGeo&&bgPlan)Object.assign(bgPlan,JSON.parse(s.bgGeo));
+  updCnt();render();
+}
 function saveUndo(){
-  undoStack.push({items:JSON.stringify(items),zones:JSON.stringify(zones),wires:JSON.stringify(wires),walls:JSON.stringify(walls),texts:JSON.stringify(texts)});
+  undoStack.push(snapState());
   if(undoStack.length>80)undoStack.shift();
   redoStack=[];
 }
 function undoAct(){
   if(!undoStack.length)return;
-  redoStack.push({items:JSON.stringify(items),zones:JSON.stringify(zones),wires:JSON.stringify(wires),walls:JSON.stringify(walls),texts:JSON.stringify(texts)});
-  const s=undoStack.pop();
-  items=JSON.parse(s.items);zones=JSON.parse(s.zones);wires=JSON.parse(s.wires);
-  walls=JSON.parse(s.walls||"[]");texts=JSON.parse(s.texts||"[]");
-  updCnt();render();showToast("Deshacer","ok");
+  redoStack.push(snapState());
+  applyState(undoStack.pop());
+  showToast("Deshacer","ok");
 }
 function redoAct(){
   if(!redoStack.length)return;
-  undoStack.push({items:JSON.stringify(items),zones:JSON.stringify(zones),wires:JSON.stringify(wires),walls:JSON.stringify(walls),texts:JSON.stringify(texts)});
-  const s=redoStack.pop();
-  items=JSON.parse(s.items);zones=JSON.parse(s.zones);wires=JSON.parse(s.wires);
-  walls=JSON.parse(s.walls||"[]");texts=JSON.parse(s.texts||"[]");
-  updCnt();render();showToast("Rehacer","ok");
+  undoStack.push(snapState());
+  applyState(redoStack.pop());
+  showToast("Rehacer","ok");
 }
 
 // ═══ TOOLTIP / TOAST ═══
@@ -2327,12 +2668,12 @@ function saveProjData(){
 
 // ═══ SAVE / LOAD ═══
 function savePlan(){
-  const data=JSON.stringify({v:4,projData,items,zones,wires,walls,texts,idxC},null,2);
+  const data=JSON.stringify({v:5,projData,bg:bgPlan,items,zones,wires,walls,texts,idxC},null,2);
   const a=document.createElement("a");
   a.href=URL.createObjectURL(new Blob([data],{type:"application/json"}));
   a.download=`EM-PRO-${(projData.name||"plano").replace(/[^a-z0-9]/gi,"-").toLowerCase()}-${new Date().toISOString().slice(0,10)}.json`;
   a.click();URL.revokeObjectURL(a.href);
-  showToast("Plano descargado (JSON)","ok");
+  showToast("Plano descargado (JSON, incluye el plano base)","ok");
   saveToCloud(true);
 }
 function loadPlan(){
@@ -2347,6 +2688,7 @@ function loadPlan(){
         walls=d.walls||[];texts=d.texts||[];
         if(d.idxC)idxC=d.idxC;
         if(d.projData){projData=d.projData;document.getElementById("st-proj").textContent=projData.name||"Sin proyecto";}
+        setBgFromData(d.bg||null);
         undoStack=[];redoStack=[];updCnt();render();
         showToast(`Cargado: ${items.length} equipos, ${walls.length} paredes, ${zones.length} zonas`,"ok");
         saveToCloud(true);
@@ -2358,8 +2700,8 @@ function loadPlan(){
 // ═══ SINCRONIZACIÓN EN LA NUBE (Firebase Realtime Database) ═══
 // El plano ya NO se guarda en localStorage (queda atado a ese navegador/dispositivo).
 // En su lugar se guarda en Firebase: cualquiera que abra este mismo link ve y edita
-// el mismo plano, desde cualquier equipo. Rellena firebaseConfig con los datos de TU
-// proyecto de Firebase (ver instrucciones que te di aparte).
+// el mismo plano, desde cualquier equipo. El plano base importado viaja dentro del
+// mismo registro (embebido en base64), así que también lo ve el resto del equipo.
 const firebaseConfig={
   apiKey:"AIzaSyBrgf1VtKll2j1V-J6Dd1mt57b7BMbBQWE",
   authDomain:"em-seguridad-pro.firebaseapp.com",
@@ -2399,7 +2741,7 @@ async function saveToCloud(notify){
   if(!firebaseReady){setCloudStatus("unavailable");return;}
   try{
     setCloudStatus("saving");
-    const data={v:4,projData,items,zones,wires,walls,texts,idxC};
+    const data={v:5,projData,bg:bgPlan||null,items,zones,wires,walls,texts,idxC};
     await fbDb.ref(CLOUD_KEY).set(data);
     setCloudStatus("ok");
     if(notify)showToast("Sincronizado — visible para cualquiera con el link","ok");
@@ -2411,7 +2753,7 @@ async function saveToCloud(notify){
 
 async function forceReloadCloud(){
   if(!firebaseReady){showToast("Firebase no está configurado en este archivo","err");return;}
-  if((items.length>0||walls.length>0||zones.length>0)&&!confirm("Esto reemplaza lo que ves en pantalla por la última versión guardada en la nube. ¿Continuar?"))return;
+  if((items.length>0||walls.length>0||zones.length>0||bgPlan)&&!confirm("Esto reemplaza lo que ves en pantalla por la última versión guardada en la nube. ¿Continuar?"))return;
   showToast("Trayendo última versión de la nube…","info");
   await loadFromCloud();
 }
@@ -2426,8 +2768,9 @@ async function loadFromCloud(){
       walls=d.walls||[];texts=d.texts||[];
       if(d.idxC)idxC=d.idxC;
       if(d.projData){projData=d.projData;document.getElementById("st-proj").textContent=projData.name||"Sin proyecto";}
+      setBgFromData(d.bg||null);
       undoStack=[];redoStack=[];updCnt();render();
-      showToast(`Plano cargado desde la nube: ${items.length} equipos`,"ok");
+      showToast(`Plano cargado desde la nube: ${items.length} equipos`+(d.bg?" + plano base":""),"ok");
     }
     setCloudStatus("ok");
   }catch(e){
@@ -2465,7 +2808,15 @@ async function exportPDF(){
     const tc=tmpCtx.getContext("2d");
     tc.imageSmoothingEnabled=true;tc.imageSmoothingQuality="high";
     tc.scale(EXPORT_SCALE,EXPORT_SCALE);
-    drawGrid(tc,Wc,Hc);
+    // ── Plano base primero (queda debajo de todo, igual que en pantalla) ──
+    if(bgPlan&&bgImgEl&&bgImgEl.complete&&bgImgEl.naturalWidth){
+      const pb=w2s(bgPlan.x,bgPlan.y);
+      tc.save();
+      tc.globalAlpha=Math.max(0,Math.min(1,bgPlan.op??.55));
+      tc.drawImage(bgImgEl,pb.x,pb.y,bgPlan.w*scale,bgPlan.h*scale);
+      tc.restore();
+    }
+    drawGrid(tc,Wc,Hc,true);
     zones.forEach(z=>drawZone(tc,z));
     walls.forEach(w=>drawWall(tc,w));
     wires.forEach(w=>drawWire(tc,w));
@@ -2475,7 +2826,7 @@ async function exportPDF(){
     // Footer
     const fH=28;ectx.fillStyle="#0d1520";ectx.fillRect(0,Hc-fH,Wc,fH);
     ectx.font="9px 'IBM Plex Mono',monospace";ectx.fillStyle="#3d5a78";ectx.textBaseline="middle";
-    ectx.fillText(`Equipos: ${items.length}  ·  Cables: ${wires.length}  ·  Zonas: ${zones.length}  ·  Paredes: ${walls.length}`,14,Hc-fH/2);
+    ectx.fillText(`Equipos: ${items.length}  ·  Cables: ${wires.length}  ·  Zonas: ${zones.length}  ·  Paredes: ${walls.length}`+(bgPlan?`  ·  Plano base${bgPlan.cal?" calibrado":""}`:""),14,Hc-fH/2);
     ectx.textAlign="right";ectx.fillText("EM Seguridad Electrónica PRO — Ing. Edisson Macias",Wc-14,Hc-fH/2);
     ectx.textAlign="left";ectx.textBaseline="alphabetic";
 
@@ -2496,6 +2847,9 @@ document.addEventListener("keydown",e=>{
   if(e.key==="Escape"){
     setTool("select");activeEq=null;wireFrom=null;
     wallDrawing=false;wallStart=null;zoneActive=false;zoneStart=null;roomActive=false;roomStart=null;
+    calibMode=false;calibPts=[];bgDrag=null;bgResize=null;setBgEdit(false);
+    document.getElementById("cal-wrap").classList.remove("show");
+    document.getElementById("calib-hint").classList.remove("show");
     clearOv();buildSidebar(document.getElementById("srch").value);
   }
   if(!e.ctrlKey&&!e.metaKey){
@@ -2512,6 +2866,8 @@ document.addEventListener("keydown",e=>{
     if(e.key==="n")setWallSub("raceway");
     if(e.key==="l")setWallSub("linea");
     if(e.key==="t")setTool("text");
+    if(e.key==="b")toggleBgEdit();
+    if(e.key==="m")startCalib();
     if(e.key==="f")zoomFit();
     if(e.key==="g")toggleGrid();
     if(e.key==="r"&&selId)rotSel(90);
@@ -2557,7 +2913,7 @@ if("serviceWorker" in navigator){
 
 // ═══ HEARTBEAT DE RESPALDO — sincroniza cada 30s aunque no haya edición nueva ═══
 setInterval(()=>{
-  if(items.length>0||walls.length>0||zones.length>0){
+  if(items.length>0||walls.length>0||zones.length>0||bgPlan){
     saveToCloud(false);
   }
 },30000);
