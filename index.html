@@ -316,7 +316,9 @@ canvas{position:absolute;top:0;left:0;pointer-events:none;}
 .v3d-btn.on{background:rgba(14,165,233,.2);color:var(--acc);border-color:var(--acc);}
 .v3d-btn.danger{color:var(--red);border-color:rgba(239,68,68,.3);}
 #v3d-canvas{flex:1;min-height:0;position:relative;touch-action:none;}
-#v3d-canvas canvas{display:block;width:100%;height:100%;}
+#v3d-canvas canvas{display:block;width:100%;height:100%;position:relative;
+  pointer-events:auto!important;touch-action:none;cursor:grab;}
+#v3d-canvas canvas:active{cursor:grabbing;}
 #v3d-load{display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
   font-family:var(--mono);font-size:13px;color:var(--txt2);}
 #v3d-help{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);
@@ -673,6 +675,18 @@ canvas{position:absolute;top:0;left:0;pointer-events:none;}
   </div>
 </div>
 
+<!-- Confirmación propia -->
+<div class="modal-wrap" id="cfm-wrap">
+  <div class="modal" style="width:min(330px,92vw)">
+    <h4 id="cfm-title">Confirmar</h4>
+    <p class="modal-note" id="cfm-msg"></p>
+    <div class="mbtns">
+      <button class="mbs" onclick="cfmClose()">Cancelar</button>
+      <button class="mbp" id="cfm-ok" onclick="cfmAccept()">Sí, continuar</button>
+    </div>
+  </div>
+</div>
+
 <!-- CTX menu -->
 <div id="ctx">
   <div class="ctx-i" onclick="ctxDup()">⧉ Duplicar</div>
@@ -745,14 +759,16 @@ canvas{position:absolute;top:0;left:0;pointer-events:none;}
     <button class="v3d-btn on" id="v3d-cones" onclick="v3dToggle('cones')">◤ Cobertura</button>
     <button class="v3d-btn on" id="v3d-labels" onclick="v3dToggle('labels')">T Etiquetas</button>
     <button class="v3d-btn on" id="v3d-floor" onclick="v3dToggle('floor')">🖼 Plano base</button>
+    <button class="v3d-btn on" id="v3d-big" onclick="v3dToggle('big')">⬢ Equipos destacados</button>
     <button class="v3d-btn" id="v3d-ghost" onclick="v3dToggle('ghost')">◫ Muros translúcidos</button>
     <button class="v3d-btn" onclick="v3dResetCam()">⊡ Encuadrar</button>
+    <button class="v3d-btn" onclick="v3dEyeLevel()">👁 Nivel de ojo</button>
     <button class="v3d-btn" onclick="v3dSnapshot()">📷 PNG</button>
     <button class="v3d-btn danger" onclick="close3D()">✕ Cerrar</button>
   </div>
   <div id="v3d-canvas"></div>
   <div id="v3d-load">Cargando motor 3D…</div>
-  <div id="v3d-help">1 dedo: girar · 2 dedos: zoom y desplazar</div>
+  <div id="v3d-help">1 dedo o clic: girar · 2 dedos o rueda: zoom · 2 dedos / Shift: desplazar</div>
 </div>
 
 <!-- Toast -->
@@ -2437,10 +2453,22 @@ function placeBgPlan(dataUrl,name){
 
 function removeBgPlan(){
   if(!bgPlan){showToast("No hay plano base","info");return;}
-  if(!confirm("¿Quitar el plano base? Los equipos, paredes y zonas se conservan."))return;
-  bgPlan=null;bgImgEl=null;setBgEdit(false);
-  updBgStatus();render();scheduleCloudSave();
+  askConfirm("Quitar plano base",
+    "Se elimina la imagen de fondo del proyecto. Los equipos, paredes y zonas se conservan.",
+    "✕ Quitar plano",doRemoveBgPlan);
+}
+async function doRemoveBgPlan(){
+  bgPlan=null;bgImgEl=null;bgDrag=null;bgResize=null;setBgEdit(false);
+  const op=document.getElementById("bg-op");if(op)op.value=55;
+  updBgStatus();render();
   showToast("Plano base eliminado","ok");
+  // Borrado explícito en la nube: si sólo se reescribía el registro completo,
+  // un guardado fallido dejaba el plano viejo y volvía a aparecer al recargar.
+  if(firebaseReady){
+    try{await fbDb.ref(CLOUD_KEY+"/bg").remove();}
+    catch(e){showToast("Se borró aquí, pero no en la nube: "+e.message,"err");}
+  }
+  await saveToCloud(false);
 }
 
 function setBgOpacity(v){
@@ -3170,6 +3198,25 @@ function updRotDeg(v){
   render();
 }
 
+// ═══ CONFIRMACIÓN EN LA APP ═══
+// El confirm() del navegador queda bloqueado en algunas tablets cuando la app
+// corre instalada como PWA: el botón parecía no responder. Este modal siempre
+// funciona porque es parte de la misma página.
+let _cfmCb=null;
+function askConfirm(title,msg,okLabel,cb){
+  _cfmCb=cb;
+  document.getElementById("cfm-title").textContent=title;
+  document.getElementById("cfm-msg").textContent=msg;
+  document.getElementById("cfm-ok").textContent=okLabel||"Sí, continuar";
+  document.getElementById("cfm-wrap").classList.add("show");
+}
+function cfmClose(){document.getElementById("cfm-wrap").classList.remove("show");_cfmCb=null;}
+function cfmAccept(){
+  const cb=_cfmCb;_cfmCb=null;
+  document.getElementById("cfm-wrap").classList.remove("show");
+  if(cb)cb();
+}
+
 // ═══ DELETE / DUP ═══
 function delSel(){
   if(!selId)return;saveUndo();
@@ -3190,9 +3237,12 @@ function dupSel(){
   if(tz){idxC++;texts.push({...tz,id:"tx"+idxC,x:tz.x+20,y:tz.y+20});render();showToast("Duplicado","ok");}
 }
 function clearAll(){
-  if(!confirm("¿Limpiar todo el plano? (el plano base importado se conserva)"))return;
-  items=[];zones=[];wires=[];walls=[];texts=[];selId=null;idxC=0;undoStack=[];redoStack=[];
-  updCnt();render();hideProps();showToast("Plano limpiado","ok");
+  askConfirm("Limpiar el plano",
+    "Se borran equipos, cables, zonas, paredes y textos. El plano base importado se conserva.",
+    "🗑 Limpiar todo",()=>{
+      items=[];zones=[];wires=[];walls=[];texts=[];selId=null;idxC=0;undoStack=[];redoStack=[];
+      updCnt();render();hideProps();showToast("Plano limpiado","ok");
+    });
 }
 function updCnt(){
   document.getElementById("st-cnt").textContent=items.length+" equipo"+(items.length!==1?"s":"");
@@ -3402,7 +3452,7 @@ const firebaseConfig={
   appId:"1:827891466157:web:ee476279cb5037e31eeb24"
 };
 const CLOUD_KEY="em-seguridad-plan";
-let cloudSaveTimer=null,fbDb=null,firebaseReady=false;
+let cloudSaveTimer=null,fbDb=null,firebaseReady=false,cloudDirty=false;
 
 try{
   if(firebaseConfig.apiKey&&!firebaseConfig.apiKey.startsWith("PEGA_")){
@@ -3423,6 +3473,7 @@ function setCloudStatus(state){
 }
 
 function scheduleCloudSave(){
+  cloudDirty=true;
   clearTimeout(cloudSaveTimer);
   cloudSaveTimer=setTimeout(()=>saveToCloud(false),1500);
 }
@@ -3433,6 +3484,7 @@ async function saveToCloud(notify){
     setCloudStatus("saving");
     const data={v:5,projData,bg:bgPlan||null,items,zones,wires,walls,texts,idxC};
     await fbDb.ref(CLOUD_KEY).set(data);
+    cloudDirty=false;
     setCloudStatus("ok");
     if(notify)showToast("Sincronizado — visible para cualquiera con el link","ok");
   }catch(e){
@@ -3441,11 +3493,14 @@ async function saveToCloud(notify){
   }
 }
 
-async function forceReloadCloud(){
+function forceReloadCloud(){
   if(!firebaseReady){showToast("Firebase no está configurado en este archivo","err");return;}
-  if((items.length>0||walls.length>0||zones.length>0||bgPlan)&&!confirm("Esto reemplaza lo que ves en pantalla por la última versión guardada en la nube. ¿Continuar?"))return;
-  showToast("Trayendo última versión de la nube…","info");
-  await loadFromCloud();
+  const go=()=>{showToast("Trayendo última versión de la nube…","info");loadFromCloud();};
+  if(items.length>0||walls.length>0||zones.length>0||bgPlan){
+    askConfirm("Recargar desde la nube",
+      "Esto reemplaza lo que ves en pantalla por la última versión guardada en la nube.",
+      "☁ Recargar",go);
+  }else go();
 }
 
 async function loadFromCloud(){
@@ -3578,7 +3633,7 @@ const SH_PTZ=new Set(["cam_ptz_ip","cam_ptz_ana"]);
 const SH_FLOOR=new Set(["rack_6u","rack_12u","rack_22u","servidor_vms","ups_1kva","ups_2kva","ups_6kva","torniquete","barrera_veh","poste_3m","poste_4m"]);
 
 let V3D={lib:false,on:false,scene:null,cam:null,rend:null,raf:null,root:null,
-  groups:{},opts:{cones:true,labels:true,floor:true,ghost:false},
+  groups:{},opts:{cones:true,labels:true,floor:true,ghost:false,big:true},
   orb:{tgt:null,r:12,th:Math.PI*.25,ph:Math.PI*.32},bbox:null};
 
 function load3DLib(){
@@ -3705,6 +3760,22 @@ function v3dCone(it,eq){
   return mesh;
 }
 
+// textura de lamas (persiana de parqueadero / barrotes de portón)
+function v3dSlatTex(vertical,base,line){
+  const c=document.createElement("canvas");c.width=64;c.height=64;
+  const g=c.getContext("2d");
+  g.fillStyle=base;g.fillRect(0,0,64,64);
+  g.strokeStyle=line;g.lineWidth=5;
+  for(let i=8;i<64;i+=16){
+    g.beginPath();
+    if(vertical){g.moveTo(i,0);g.lineTo(i,64);}else{g.moveTo(0,i);g.lineTo(64,i);}
+    g.stroke();
+  }
+  const t=new THREE.Texture(c);t.needsUpdate=true;
+  t.wrapS=t.wrapT=THREE.RepeatWrapping;
+  return t;
+}
+
 // ── construcción completa de la escena ──
 function v3dBuildScene(){
   const scene=new THREE.Scene();
@@ -3755,33 +3826,128 @@ function v3dBuildScene(){
   });
 
   // ── paredes, puertas y ventanas ──
+  // En el plano 2D las puertas y ventanas se dibujan ENCIMA de la pared, no la
+  // cortan. Si el muro se extruye completo, el vano queda tapado y en 3D no se
+  // ve abierto: por eso aquí cada hueco se RESTA del muro que lo contiene.
+  const OPEN_SUBS=["door","win","garS","garD"];
+  const opens=walls.filter(w=>OPEN_SUBS.includes(w.sub));
+  const openH=w=>M3(w.sub==="door"?DOOR_H:w.sub==="win"?WIN_HEAD:GAR_H);
+  const hosted=new Set();
+
+  const addBox=(L,h,th,px,y,pz,ang,color,op)=>{
+    if(h<=.02||L<=.02)return null;
+    const b=v3dBox(L,h,th,color,op?{op:op}:undefined);
+    b.position.set(px,y+h/2,pz);b.rotation.y=-ang;G.walls.add(b);
+    return b;
+  };
+  const sillAndGlass=(L,th,px,pz,ang,H)=>{
+    addBox(L,M3(WIN_SILL),th,px,0,pz,ang,0xcfd8e3);
+    addBox(L,M3(WIN_HEAD-WIN_SILL),th*.35,px,M3(WIN_SILL),pz,ang,0x7dd3fc,.30);
+  };
+
   walls.forEach(w=>{
-    if(!["wall","door","win","garS","garD"].includes(w.sub))return;
+    if(w.sub!=="wall")return;
+    const len=Math.hypot(w.x2-w.x1,w.y2-w.y1);if(len<5)return;
+    const ux=(w.x2-w.x1)/len,uy=(w.y2-w.y1)/len;
+    const ang=Math.atan2(M3(w.y2-w.y1),M3(w.x2-w.x1));
+    const th=Math.max(.05,M3(w.thick||14)),H=M3(w.h||WALL_H_DEF);
+    const at=t=>({x:M3(w.x1+ux*t),z:M3(w.y1+uy*t)});
+    // huecos que caen sobre este muro (paralelos y a menos de medio grosor)
+    const cuts=[];
+    opens.forEach(o=>{
+      const ol=Math.hypot(o.x2-o.x1,o.y2-o.y1);if(ol<5)return;
+      if(Math.abs(ux*(o.y2-o.y1)-uy*(o.x2-o.x1))/ol>.12)return;
+      const mxp=(o.x1+o.x2)/2-w.x1,myp=(o.y1+o.y2)/2-w.y1;
+      if(Math.abs(-uy*mxp+ux*myp)>(w.thick||14)/2+(o.thick||14)/2+15)return;
+      let ta=(o.x1-w.x1)*ux+(o.y1-w.y1)*uy,tb=(o.x2-w.x1)*ux+(o.y2-w.y1)*uy;
+      if(ta>tb){const sw=ta;ta=tb;tb=sw;}
+      ta=Math.max(0,ta);tb=Math.min(len,tb);
+      if(tb-ta<5)return;
+      cuts.push({a:ta,b:tb,o:o});hosted.add(o.id);
+    });
+    cuts.sort((p,q)=>p.a-q.a);
+    // tramos macizos entre los huecos
+    let cur=0;
+    cuts.forEach(c=>{
+      if(c.a-cur>1){const p=at((cur+c.a)/2);addBox(M3(c.a-cur),H,th,p.x,0,p.z,ang,0xcfd8e3);}
+      cur=Math.max(cur,c.b);
+    });
+    if(len-cur>1){const p=at((cur+len)/2);addBox(M3(len-cur),H,th,p.x,0,p.z,ang,0xcfd8e3);}
+    // dintel sobre cada hueco, y antepecho + vidrio en ventanas
+    cuts.forEach(c=>{
+      const p=at((c.a+c.b)/2),L=M3(c.b-c.a),oh=openH(c.o);
+      addBox(L,H-oh,th,p.x,oh,p.z,ang,0xb8c4d2);
+      if(c.o.sub==="win")sillAndGlass(L,th,p.x,p.z,ang,H);
+    });
+  });
+
+  // ── hojas, persianas, jambas y umbrales de cada vano ──
+  opens.forEach(w=>{
+    const len=Math.hypot(w.x2-w.x1,w.y2-w.y1);if(len<5)return;
     const x1=M3(w.x1),z1=M3(w.y1),x2=M3(w.x2),z2=M3(w.y2);
-    const len=Math.hypot(x2-x1,z2-z1);if(len<.05)return;
-    const ang=Math.atan2(z2-z1,x2-x1);
-    const th=Math.max(.05,M3(w.thick||14));
-    const H=M3(w.h||WALL_H_DEF);
+    const L=M3(len),ang=Math.atan2(z2-z1,x2-x1);
+    const th=Math.max(.05,M3(w.thick||14)),H=M3(w.h||WALL_H_DEF),oh=openH(w);
     const mx=(x1+x2)/2,mz=(z1+z2)/2;
-    const put=(h,y0,color,op)=>{
-      if(h<=.02)return;
-      const b=v3dBox(len,h,th,color,op?{op:op}:undefined);
-      b.position.set(mx,y0+h/2,mz);b.rotation.y=-ang;
-      G.walls.add(b);
-    };
-    if(w.sub==="wall"){
-      put(H,0,0xcfd8e3);
-    }else if(w.sub==="door"||w.sub==="garS"||w.sub==="garD"){
-      const oh=M3(w.sub==="door"?DOOR_H:GAR_H);
-      put(H-oh,oh,0xb8c4d2);                          // dintel, deja el vano libre
-      const sill=v3dBox(len,.02,th,w.sub==="door"?0xf59e0b:0xfb923c);
-      sill.position.set(mx,.01,mz);sill.rotation.y=-ang;G.walls.add(sill);
-    }else if(w.sub==="win"){
-      const sh=M3(WIN_SILL),hh=M3(WIN_HEAD);
-      put(sh,0,0xcfd8e3);                             // antepecho
-      put(Math.max(0,H-hh),hh,0xcfd8e3);              // dintel
-      const gl=v3dBox(len,Math.max(.05,hh-sh),th*.35,0x7dd3fc,{op:.28});
-      gl.position.set(mx,(sh+hh)/2,mz);gl.rotation.y=-ang;G.walls.add(gl);
+    // si el vano no cayó sobre ningún muro, se dibuja solo
+    if(!hosted.has(w.id)){
+      addBox(L,H-oh,th,mx,oh,mz,ang,0xb8c4d2);
+      if(w.sub==="win")sillAndGlass(L,th,mx,mz,ang,H);
+    }
+    if(w.sub==="win")return;
+    // jambas del vano
+    [[x1,z1],[x2,z2]].forEach(([jx,jz])=>{
+      const j=v3dBox(th*1.2,oh,th*1.2,0x8e9cad);
+      j.position.set(jx,oh/2,jz);j.rotation.y=-ang;G.walls.add(j);
+    });
+    // umbral en el piso, marcando por dónde se pasa
+    const sill=v3dBox(L,.03,th,w.sub==="door"?0xf59e0b:0xfb923c);
+    sill.position.set(mx,.015,mz);sill.rotation.y=-ang;G.walls.add(sill);
+
+    if(w.sub==="garS"){
+      // PERSIANA ENROLLABLE: rieles laterales, tambor arriba y lama a media altura
+      [[x1,z1],[x2,z2]].forEach(([jx,jz])=>{
+        const r=v3dBox(.07,oh,th*.5,0x64748b);
+        r.position.set(jx,oh/2,jz);r.rotation.y=-ang;G.walls.add(r);
+      });
+      const drum=new THREE.Mesh(new THREE.CylinderGeometry(.11,.11,L*.98,14),
+        new THREE.MeshLambertMaterial({color:0x94a3b8}));
+      drum.rotation.z=Math.PI/2;drum.rotation.y=-ang;
+      drum.position.set(mx,oh+.12,mz);G.walls.add(drum);
+      const tex=v3dSlatTex(false,"#fb923c","#c2600f");
+      tex.repeat.set(Math.max(2,L*1.6),2);
+      const panelH=oh*.30;
+      const panel=new THREE.Mesh(new THREE.BoxGeometry(L*.94,panelH,th*.30),
+        new THREE.MeshLambertMaterial({map:tex}));
+      panel.position.set(mx,oh-panelH/2,mz);panel.rotation.y=-ang;G.walls.add(panel);
+    }else{
+      // HOJAS BATIENTES: puerta peatonal (una) o portón de parqueadero (dos)
+      const ori=w.doorOri||0,hingeAtB=!!(ori&1),flip=!!(ori&2);
+      const sweep=(flip?-1:1)*80*Math.PI/180;
+      const gar=(w.sub==="garD");
+      const dh=oh*.97;
+      const leaf=(hx,hz,baseAng,LL)=>{
+        let mat;
+        if(gar){
+          const t2=v3dSlatTex(true,"#fb923c","#b45309");
+          t2.repeat.set(Math.max(2,LL*2.2),1);
+          mat=new THREE.MeshLambertMaterial({map:t2});
+        }else mat=new THREE.MeshLambertMaterial({color:0xc98a3c});
+        const geo=new THREE.BoxGeometry(LL,dh,gar?.07:.05);
+        geo.translate(LL/2,0,0);                     // bisagra en el origen
+        const m=new THREE.Mesh(geo,mat);
+        m.position.set(hx,dh/2+.02,hz);
+        m.rotation.y=-(baseAng+sweep);
+        G.walls.add(m);
+        if(!gar){
+          const kn=v3dBox(.05,.05,.05,0xe5e7eb);
+          kn.position.set(hx,dh*.52,hz);G.walls.add(kn);
+        }
+      };
+      if(gar){leaf(x1,z1,ang,L/2);leaf(x2,z2,ang+Math.PI,L/2);}
+      else{
+        const hx=hingeAtB?x2:x1,hz=hingeAtB?z2:z1;
+        leaf(hx,hz,hingeAtB?ang+Math.PI:ang,L*.96);
+      }
     }
   });
 
@@ -3792,7 +3958,15 @@ function v3dBuildScene(){
     const y=SH_FLOOR.has(it.type)?0:M3(mountH(it));
     g.position.set(M3(it.x),y,M3(it.y));
     g.rotation.y=-(it.rot||0)*Math.PI/180;            // 0° = norte del plano
+    g.userData.small=!SH_FLOOR.has(it.type);          // los de piso conservan su tamaño real
     G.items.add(g);
+    // baliza: punto de color sobre el equipo para ubicarlo desde lejos
+    if(g.userData.small){
+      const pin=new THREE.Mesh(new THREE.SphereGeometry(.055,10,8),
+        new THREE.MeshBasicMaterial({color:new THREE.Color(eq.c)}));
+      pin.position.set(M3(it.x),y+.22,M3(it.y));
+      G.items.add(pin);pin.userData.pin=true;
+    }
     if(DIR_CONE_TYPES.has(it.type)){
       const cn=v3dCone(it,eq);
       const holder=new THREE.Group();
@@ -3851,6 +4025,8 @@ function v3dAttachOrbit(dom){
     upd();
   };
   const up=()=>{mode=0;};
+  v3dDetachOrbit();                                  // evita duplicar escuchas al reabrir
+  V3D._orb={move:move,up:up};
   dom.addEventListener("mousedown",down);
   window.addEventListener("mousemove",move);
   window.addEventListener("mouseup",up);
@@ -3873,6 +4049,13 @@ function v3dPan(dx,dy){
   o.tgt.x+=ux*dy*k;o.tgt.z+=uz*dy*k;
 }
 
+function v3dDetachOrbit(){
+  if(!V3D._orb)return;
+  window.removeEventListener("mousemove",V3D._orb.move);
+  window.removeEventListener("mouseup",V3D._orb.up);
+  V3D._orb=null;
+}
+
 function v3dUpdateCam(){
   if(!V3D.cam)return;
   const o=V3D.orb,t=o.tgt;
@@ -3892,10 +4075,25 @@ function v3dResetCam(){
   v3dUpdateCam();
 }
 
+// Cámara a 1.5 m y casi horizontal: es la única forma de mirar a través de una
+// puerta. Desde arriba sólo se ven los techos de los muros.
+function v3dEyeLevel(){
+  if(!V3D.bbox)return;
+  const b=V3D.bbox,c=b.getCenter(new THREE.Vector3()),sz=b.getSize(new THREE.Vector3());
+  V3D.orb.tgt=new THREE.Vector3(c.x,1.5,c.z);
+  V3D.orb.ph=.09;
+  V3D.orb.r=Math.max(4,Math.max(sz.x,sz.z)*.85);
+  v3dUpdateCam();
+  showToast("Nivel de ojo — arrastra para recorrer el interior","info");
+}
+
 function v3dApplyOpts(){
   if(!V3D.groups)return;
   const g=V3D.groups,o=V3D.opts;
   if(g.cones)g.cones.visible=o.cones;
+  if(g.items)g.items.children.forEach(c=>{
+    if(c.userData&&(c.userData.small||c.userData.pin))c.scale.setScalar(o.big?2.4:1);
+  });
   if(g.labels)g.labels.visible=o.labels;
   if(g.floor)g.floor.visible=o.floor;
   if(g.walls)g.walls.traverse(m=>{
@@ -3907,7 +4105,7 @@ function v3dApplyOpts(){
       m.material.needsUpdate=true;
     }
   });
-  ["cones","labels","floor","ghost"].forEach(k=>{
+  ["cones","labels","floor","ghost","big"].forEach(k=>{
     const b=document.getElementById("v3d-"+k);
     if(b)b.classList.toggle("on",!!o[k]);
   });
@@ -3962,6 +4160,7 @@ async function open3D(){
 
 function close3D(){
   V3D.on=false;
+  v3dDetachOrbit();
   if(V3D.raf)cancelAnimationFrame(V3D.raf);
   V3D.raf=null;
   if(V3D.rend){
@@ -4065,9 +4264,12 @@ if("serviceWorker" in navigator){
   });
 }
 
-// ═══ HEARTBEAT DE RESPALDO — sincroniza cada 30s aunque no haya edición nueva ═══
+// ═══ HEARTBEAT DE RESPALDO — reintenta cada 30s SÓLO si quedó algo sin guardar ═══
+// Antes re-subía el proyecto completo cada 30 segundos aunque nadie hubiera
+// tocado nada: con un plano base de varios MB eso era un gasto de datos enorme
+// y, peor, podía resucitar información ya borrada.
 setInterval(()=>{
-  if(items.length>0||walls.length>0||zones.length>0||bgPlan){
+  if(cloudDirty&&(items.length>0||walls.length>0||zones.length>0||texts.length>0||bgPlan)){
     saveToCloud(false);
   }
 },30000);
